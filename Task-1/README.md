@@ -37,7 +37,6 @@ Instead of storing heavy message strings inside every Session, this project uses
 * This prevents "Circular Dependency" issues and makes the code modular and testable.
 
 ### 3. Smart Resource Management
-* Uses `std::unique_ptr` for memory safety in the entry point.
 * Implements **Const Correctness** throughout getters (`const std::string&`) to prevent unnecessary data copying and accidental state mutation.
 
 ## 🚀 Getting Started
