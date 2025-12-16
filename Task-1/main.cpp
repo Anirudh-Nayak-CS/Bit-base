@@ -7,56 +7,80 @@ int main()
     std::cout << "=== Starting Chat System ===\n";
 
     // 1. Initialize the Service
-    // We pass an empty Data_Manager to initialize the service
     Data_Manager initial_dm;
     ChatService chatApp(initial_dm);
 
-    // 2. Create Users
-    // Alice and Bob are standard users
+    // 2. Creating users
     int userAlice = chatApp.createUser("Alice", true);
     int userBob = chatApp.createUser("Bob", true);
-    
-    std::cout << "Created Users: Alice (ID: " << userAlice << "), Bob (ID: " << userBob << ")\n";
+    int userAliceDup = chatApp.createUser("Alice", false); // duplicate name
+    std::cout << "Created Users: Alice (ID: " << userAlice << "), Bob (ID: " << userBob << "), AliceDup (ID: " << userAliceDup << ")\n";
 
-    // 3. Create a Session (Chat Room)
+    // 3. Create Sessions
     int sessionID = chatApp.addSession();
-    std::cout << "Created Session (ID: " << sessionID << ")\n";
+    int sessionID2 = chatApp.addSession();
+    std::cout << "Created Sessions: " << sessionID << ", " << sessionID2 << "\n";
 
-    // 4. Users join the session
+    // 4. Users join sessions (including invalid cases)
     chatApp.joinSession(userAlice, sessionID);
     chatApp.joinSession(userBob, sessionID);
-    std::cout << "Alice and Bob joined the session.\n\n";
+    chatApp.joinSession(userAliceDup, sessionID2);
+    std::cout << "Alice and Bob joined session " << sessionID << ". AliceDup joined session " << sessionID2 << ".\n";
 
-    // 5. Send Messages (Simulating a conversation)
-    chatApp.sendMessage( userAlice, sessionID,"Hello Bob! Can you hear me?");
-    chatApp.sendMessage(userBob, sessionID,"Hey Alice! Yes, loud and clear.");
-    chatApp.sendMessage(userAlice, sessionID,"Great. This C++ chat system is working!");
-    
+    // Try joining with invalid user/session
+    chatApp.joinSession(999, sessionID); // invalid user
+    chatApp.joinSession(userAlice, 888); // invalid session
+
+    // 5. Send Messages (including edge cases)
+    chatApp.sendMessage(userAlice, sessionID, "Hello Bob! Can you hear me?");
+    chatApp.sendMessage(userBob, sessionID, "Hey Alice! Yes, loud and clear.");
+    chatApp.sendMessage(userAlice, sessionID, "Great. This C++ chat system is working!");
+    chatApp.sendMessage(userAliceDup, sessionID2, "Hi, I'm the other Alice!");
+
+    // Try sending from user not in session
+    chatApp.sendMessage(userBob, sessionID2, "Should not be delivered");
+    // Try sending to non-existent session
+    chatApp.sendMessage(userAlice, 888, "No such session");
+
     std::cout << "--- Messages Sent ---\n\n";
 
-    // 6. DISPLAY THE CHAT ( The "View" Logic )
-    std::cout << "=== CHAT HISTORY (Session " << sessionID << ") ===\n";
+    // 6. Delete a user and try to access
+    chatApp.deleteUser(userAliceDup);
+    std::cout << "Deleted AliceDup (ID: " << userAliceDup << ")\n";
+    // Try to send message as deleted user
+    chatApp.sendMessage(userAliceDup, sessionID2, "Should not work");
 
-    // A. Get access to the read-only data
+    // 7. Delete a session and try to use it
+    chatApp.deleteSession(sessionID2);
+    std::cout << "Deleted session " << sessionID2 << "\n";
+    chatApp.sendMessage(userAlice, sessionID2, "Session deleted");
+
+    // 8. Try deleting non-existent message
+    chatApp.deleteMessage(999, userAlice, sessionID);
+
+    // 9. Create and delete users/sessions in a loop
+    std::vector<int> tempUsers;
+    for (int i = 0; i < 5; ++i) {
+        int uid = chatApp.createUser("TempUser" + std::to_string(i), true);
+        tempUsers.push_back(uid);
+    }
+    int tempSession = chatApp.addSession();
+    for (int uid : tempUsers) chatApp.joinSession(uid, tempSession);
+    for (int uid : tempUsers) chatApp.deleteUser(uid);
+    chatApp.deleteSession(tempSession);
+
+    // 10. Display the chat history for sessionID
+    std::cout << "=== CHAT HISTORY (Session " << sessionID << ") ===\n";
     const Data_Manager& dm = chatApp.getDataManager();
     const Session& currentSession = dm.getSession(sessionID);
-    
-    // B. Get the list of messages in this session
-    // m_sessionHistory is a set of pairs {messageId, senderId}
     const auto& history = currentSession.getSessionHistory();
-
-    // C. Loop through history and print details
     for (const auto& entry : history) {
         int msgId = entry.first;
         int senderId = entry.second;
-
-        // Retrieve the actual objects using the IDs
         std::string senderName = dm.getUser(senderId).getName();
         std::string content = dm.getMessage(msgId).getContent();
-
         std::cout << "[" << senderName << "]: " << content << "\n";
     }
-
     std::cout << "\n=== End of Chat ===\n";
 
     return 0;

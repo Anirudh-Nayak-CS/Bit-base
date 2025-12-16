@@ -1,5 +1,6 @@
 #include <iostream>
-#include <map>
+#include <unordered_map>
+#include <memory>
 #include "User.h"
 #include "Session.h"
 #include "Message.h"
@@ -7,9 +8,9 @@
 class Data_Manager
 {
 
-  std::map<int, User> user_map;
-  std::map<int, Session> session_map;
-  std::map<int, Message> message_map;
+  std::unordered_map<int, std::unique_ptr<User>> user_map;
+  std::unordered_map<int, std::unique_ptr<Session>> session_map;
+  std::unordered_map<int,std::unique_ptr<Message>> message_map;
 
 public:
   Data_Manager()

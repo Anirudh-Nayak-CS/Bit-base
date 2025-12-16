@@ -6,10 +6,10 @@
 class ChatService
 {
 private:
-  Data_Manager m_data_manager;
+  Data_Manager& m_data_manager;
 
 public:
-  ChatService(Data_Manager dm) : m_data_manager{dm}
+  ChatService(Data_Manager& dm) : m_data_manager{dm}
   {
   }
 

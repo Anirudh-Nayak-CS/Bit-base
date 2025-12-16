@@ -38,6 +38,7 @@ Instead of storing heavy message strings inside every Session, this project uses
 
 ### 3. Smart Resource Management
 * Implements **Const Correctness** throughout getters (`const std::string&`) to prevent unnecessary data copying and accidental state mutation.
+* Implements **Smart pointers** for efficient memory management.
 
 ## 🚀 Getting Started
 
