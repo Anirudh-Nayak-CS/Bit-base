@@ -66,13 +66,33 @@ Instead of storing heavy message strings inside every Session, this project uses
 ### Sample Output
 ```text
 === Starting Chat System ===
-Created Users: Alice (ID: 1), Bob (ID: 2)
-Created Session (ID: 0)
-Alice and Bob joined the session.
-
+Created Users: Alice (ID: 1), Bob (ID: 2), AliceDup (ID: 3)
+Created Sessions: 0, 1
+Alice and Bob joined session 0. AliceDup joined session 1.
+User not found
+Session not found
+Session not found
 --- Messages Sent ---
 
+Deleted AliceDup (ID: 3)
+User_id is invalid
+Deleted session 1
+Session not found
+Message not found
+User not found
+Session not found
+User_id is invalid
+Session not found
+User_id is invalid
+Session not found
+User must be part of a session to send message.
+User_id is invalid
+Session not found
+Session not found
 === CHAT HISTORY (Session 0) ===
 [Alice]: Hello Bob! Can you hear me?
 [Bob]: Hey Alice! Yes, loud and clear.
 [Alice]: Great. This C++ chat system is working!
+[Charlie]: I'm back!
+
+=== End of Chat ===

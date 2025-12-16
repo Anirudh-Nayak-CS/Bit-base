@@ -69,7 +69,49 @@ int main()
     for (int uid : tempUsers) chatApp.deleteUser(uid);
     chatApp.deleteSession(tempSession);
 
-    // 10. Display the chat history for sessionID
+
+    // 11. Try deleting the same user and session twice
+    chatApp.deleteUser(userAliceDup); // already deleted
+    chatApp.deleteSession(sessionID2); // already deleted
+
+    // 12. Try leaving a session not joined
+    chatApp.leaveSession(userAliceDup, sessionID); // user deleted
+    chatApp.leaveSession(userBob, sessionID2); // session deleted
+    chatApp.leaveSession(999, sessionID); // invalid user
+    chatApp.leaveSession(userAlice, 888); // invalid session
+   
+ 
+    // 13. User joins, leaves, and rejoins
+    int userCharlie = chatApp.createUser("Charlie", true);
+    chatApp.joinSession(userCharlie, sessionID);
+    chatApp.leaveSession(userCharlie, sessionID);
+   
+    chatApp.joinSession(userCharlie, sessionID);
+    chatApp.sendMessage(userCharlie, sessionID, "I'm back!");
+  
+    // 14. Try sending a message after leaving
+    chatApp.leaveSession(userCharlie, sessionID);
+    chatApp.sendMessage(userCharlie, sessionID, "Should not be delivered");
+   
+
+    // 15. Try deleting a user in a session, then send message
+    int userDave = chatApp.createUser("Dave", true);
+    chatApp.joinSession(userDave, sessionID);
+    chatApp.deleteUser(userDave);
+    chatApp.sendMessage(userDave, sessionID, "Should not work");
+
+    // 16. Try creating a session, deleting it, and joining
+    int tempSession2 = chatApp.addSession();
+    chatApp.deleteSession(tempSession2);
+    chatApp.joinSession(userAlice, tempSession2);
+
+    // 17. Try deleting a session with users in it
+    int userEve = chatApp.createUser("Eve", true);
+    int sessionEve = chatApp.addSession();
+    chatApp.joinSession(userEve, sessionEve);
+    chatApp.deleteSession(sessionEve);
+    chatApp.sendMessage(userEve, sessionEve, "Should not work");
+
     std::cout << "=== CHAT HISTORY (Session " << sessionID << ") ===\n";
     const Data_Manager& dm = chatApp.getDataManager();
     const Session& currentSession = dm.getSession(sessionID);
@@ -82,6 +124,5 @@ int main()
         std::cout << "[" << senderName << "]: " << content << "\n";
     }
     std::cout << "\n=== End of Chat ===\n";
-
     return 0;
 }

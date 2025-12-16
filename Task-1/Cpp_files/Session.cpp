@@ -21,7 +21,7 @@ void Session::deleteUser(const int user_id)
 
 void Session::addMessage(const int message_id, const int sender_id)
 {
-
+ 
   m_sessionHistory.insert({message_id, sender_id});
 }
 
