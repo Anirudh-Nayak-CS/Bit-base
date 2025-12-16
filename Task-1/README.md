@@ -54,7 +54,7 @@ Instead of storing heavy message strings inside every Session, this project uses
 
 2.  **Compile the source code**
     ```bash
-    g++ *.cpp -o chat_app
+    g++ main.cpp Cpp_files/*.cpp -IHeader_files -o my_chat_app
     ```
 
 3.  **Run the application**
