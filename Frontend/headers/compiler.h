@@ -1,6 +1,7 @@
 #pragma once
 #include "common.h"
 using namespace std;
+#include "table.h"
 
 typedef struct
 {
@@ -26,3 +27,5 @@ Commandstatus handle_create(string sql_command, stmt &statement);
 Commandstatus handle_drop(string sql_command, stmt &statement);
 
 Commandstatus handle_SQL_Commands(string sql_command, stmt &statement);
+
+void get_current_time(char* buffer,size_t size);

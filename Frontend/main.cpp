@@ -48,10 +48,12 @@ int main()
       cout << "Error: Syntax error. Could not parse command." << endl;
       break;
 
+    case OUT_OF_RANGE:
+      cout << "Error: Age was out of range (age > 0 and age < 100)" << endl;
+      break;
     default:
       cout << "Error: Unknown error while handling SQL command." << endl;
       break;
-    
-    }
+        }
   }
 }

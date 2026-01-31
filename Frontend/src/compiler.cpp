@@ -1,4 +1,4 @@
-
+#include <bits/stdc++.h>
 #include "compiler.h"
 using namespace std;
 
@@ -28,7 +28,7 @@ bool handle_meta_commands(string meta_command)
   }
   else if (meta_command == ".tables")
   {
-    cout << "TABLES" << endl;
+    cout << "Users" << endl;
     return true;
   }
   else if (meta_command == ".help")
@@ -39,12 +39,13 @@ bool handle_meta_commands(string meta_command)
     cout << "  .tables    : List all tables" << endl;
 
     cout << "\n--- SQL Commands ---" << endl;
-    cout << "  insert <id> <username> <email> : Add a new row" << endl;
-    cout << "  select                         : Print all rows" << endl;
-    cout << "  update <id> <username> <email> : Modify an existing row" << endl;
-    cout << "  delete <id>                    : Remove a row" << endl;
-    cout << "  create table <name>            : Create a new table" << endl;
-    cout << "  drop table <name>              : Delete a table" << endl;
+    cout << "  insert <id> <username> <email> <age> <gender> : Add a new row" << endl;
+    cout << "  select                                        : Print all rows" << endl;
+    cout << "  update <id> <username> <email> <age> <gender> : Modify an existing row" << endl;
+    cout << "  delete <id>                                   : Remove a row" << endl;
+    cout << "  create table <name>                           : Create a new table" << endl;
+    cout << "  drop table <name>                             : Delete a table" << endl;
+
     return true;
   }
   else
@@ -52,6 +53,13 @@ bool handle_meta_commands(string meta_command)
     cout << "Unrecognized command .cmd" << endl;
     return false;
   }
+}
+
+void get_current_time(char *buff, size_t size)
+{
+  time_t time_now = time(NULL);
+  tm *t = localtime(&time_now);
+  strftime(buff, size, "%Y-%m-%d %H:%M:%S", t);
 }
 
 Commandstatus handle_insert(string sql_command, stmt &statement)
@@ -98,6 +106,51 @@ Commandstatus handle_insert(string sql_command, stmt &statement)
 
     return STRING_TOO_LONG;
   }
+
+  // age
+  int age;
+  if (!(ss >> age))
+  {
+    return SYNTAX_ERROR;
+  }
+  if (age < 0 || age > 100)
+  {
+
+    return OUT_OF_RANGE;
+  }
+
+  // gender
+  gender sex;
+  string gen;
+
+  if (!(ss >> gen))
+  {
+    return SYNTAX_ERROR;
+  }
+  if (gen == "male" || gen == "MALE" || gen == "female" || gen == "FEMALE" || gen == "OTHER" || gen == "other")
+  {
+    if (gen == "male")
+    {
+      sex = MALE;
+    }
+    else if (gen == "female")
+    {
+      sex = FEMALE;
+    }
+    else
+    {
+      sex = OTHER;
+    }
+  }
+  else
+  {
+    return SYNTAX_ERROR;
+  }
+
+  string leftover;
+  if (ss >> leftover)
+    return SYNTAX_ERROR;
+
   uint32_t final_id = static_cast<uint32_t>(id);
   char final_username[32];
   char final_email[255];
@@ -108,6 +161,11 @@ Commandstatus handle_insert(string sql_command, stmt &statement)
   final_email[sizeof(final_email) - 1] = '\0';
 
   statement.row_data = Row(final_username, final_email);
+
+  get_current_time(statement.row_data.created_at, sizeof(statement.row_data.created_at));
+  strcpy(statement.row_data.updated_at, statement.row_data.created_at);
+  statement.row_data.age = age;
+  statement.row_data.sex = sex;
   statement.id = final_id;
   statement.type = INSERT;
 
@@ -159,6 +217,51 @@ Commandstatus handle_update(string sql_command, stmt &statement)
 
     return STRING_TOO_LONG;
   }
+
+  // age
+  int age;
+  if (!(ss >> age))
+  {
+    return SYNTAX_ERROR;
+  }
+  if (age < 0 || age > 100)
+  {
+
+    return OUT_OF_RANGE;
+  }
+
+  // gender
+  gender sex;
+  string gen;
+
+  if (!(ss >> gen))
+  {
+    return SYNTAX_ERROR;
+  }
+  if (gen == "male" || gen == "female" || gen == "other")
+  {
+    if (gen == "male")
+    {
+      sex = MALE;
+    }
+    else if (gen == "female")
+    {
+      sex = FEMALE;
+    }
+    else
+    {
+      sex = OTHER;
+    }
+  }
+  else
+  {
+    return SYNTAX_ERROR;
+  }
+
+  string leftover;
+  if (ss >> leftover)
+    return SYNTAX_ERROR;
+
   uint32_t final_id = static_cast<uint32_t>(id);
   char final_username[32];
   char final_email[255];
@@ -168,7 +271,9 @@ Commandstatus handle_update(string sql_command, stmt &statement)
   final_username[sizeof(final_username) - 1] = '\0';
   final_email[sizeof(final_email) - 1] = '\0';
 
-  statement.row_data = Row(final_username, final_email);
+  get_current_time(statement.row_data.updated_at, sizeof(statement.row_data.updated_at));
+  statement.row_data.age = age;
+  statement.row_data.sex = sex;
   statement.id = final_id;
   statement.type = UPDATE;
 
@@ -301,7 +406,8 @@ Commandstatus handle_SQL_Commands(string sql_command, stmt &statement)
     {
       final_command += " " + second_word;
     }
-    else {
+    else
+    {
       return SYNTAX_ERROR;
     }
   }

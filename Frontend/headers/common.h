@@ -1,6 +1,6 @@
 #pragma once
 #define MAX_SIZE 100
-#include "table.h"
+
 
 typedef enum
 {
@@ -21,4 +21,12 @@ typedef enum
   ENTRY_NOT_FOUND,
   SUCCESS,
   FAILURE,
+  OUT_OF_RANGE,
 } Commandstatus;
+
+typedef enum {
+ MALE,
+ FEMALE,
+ OTHER,
+ NOT_DEFINED,
+}gender;

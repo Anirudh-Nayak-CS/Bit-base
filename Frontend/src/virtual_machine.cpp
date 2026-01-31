@@ -1,4 +1,4 @@
-
+#include<bits/stdc++.h>
 #include "virtual_machine.h"
 using namespace std;
 
