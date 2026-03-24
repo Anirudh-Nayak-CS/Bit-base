@@ -108,3 +108,7 @@ Pager* Pager::pager_open(const char* filename)
 
     return pager;
 }
+
+uint32_t Pager::get_unused_page_num() {
+  return this->num_pages; 
+}
