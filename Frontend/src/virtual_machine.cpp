@@ -1,5 +1,5 @@
-#include<bits/stdc++.h>
-#include "virtual_machine.h"
+#include <bits/stdc++.h>
+#include "../headers/virtual_machine.h"
 using namespace std;
 
 void execute_statement(const stmt &statement)

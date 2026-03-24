@@ -1,20 +1,21 @@
 #include <bits/stdc++.h>
-#include "compiler.h"
+#include "../headers/compiler.h"
+#include "../headers/database/db.h"
 using namespace std;
 
 SQLcommandType getCommandType(const std::string &cmd)
 {
-  if (cmd == "insert")
+  if (cmd == "INSERT")
     return SQLcommandType::INSERT;
-  if (cmd == "select")
+  if (cmd == "SELECT")
     return SQLcommandType::SELECT;
-  if (cmd == "delete")
+  if (cmd == "DELETE")
     return SQLcommandType::DELETE;
-  if (cmd == "update")
+  if (cmd == "UPDATE")
     return SQLcommandType::UPDATE;
-  if (cmd == "create table")
+  if (cmd == "CREATE TABLE")
     return SQLcommandType::CREATE_TABLE;
-  if (cmd == "drop table")
+  if (cmd == "DROP TABLE")
     return SQLcommandType::DROP_TABLE;
   return SQLcommandType::UNDEFINED;
 }
@@ -62,14 +63,25 @@ void get_current_time(char *buff, size_t size)
   strftime(buff, size, "%Y-%m-%d %H:%M:%S", t);
 }
 
-Commandstatus handle_insert(string sql_command, stmt &statement)
+Commandstatus handle_insert(string sql_command, stmt &statement, dbClass *db)
 {
   stringstream ss(sql_command);
-  string words;
-  if (!(ss >> words))
-  {
-    return SYNTAX_ERROR;
-  }
+  string first_word, second_word;
+
+  if (!(ss >> first_word))
+    return Commandstatus::CMD_SYNTAX_ERROR;
+
+  if (!(ss >> second_word) || second_word != "INTO")
+    return Commandstatus::CMD_SYNTAX_ERROR;
+
+  string table_name;
+  if (!(ss >> table_name))
+    return CMD_SYNTAX_ERROR;
+  if (db->tables.find(table_name) == db->tables.end())
+    return Commandstatus::CMD_ENTRY_NOT_FOUND;
+
+  Table *table = db->tables[table_name];
+
   int id;
   string username;
   string email;
@@ -77,46 +89,46 @@ Commandstatus handle_insert(string sql_command, stmt &statement)
   // id
   if (!(ss >> id))
   {
-    return SYNTAX_ERROR;
+    return Commandstatus::CMD_SYNTAX_ERROR;
   }
   if (id < 0)
   {
 
-    return NEGATIVE_INT;
+    return Commandstatus::CMD_NEGATIVE_INT;
   }
 
   // username
   if (!(ss >> username))
   {
-    return SYNTAX_ERROR;
+    return Commandstatus::CMD_SYNTAX_ERROR;
   }
   if (username.length() > 32)
   {
 
-    return STRING_TOO_LONG;
+    return Commandstatus::CMD_STRING_TOO_LONG;
   }
 
   // email
   if (!(ss >> email))
   {
-    return SYNTAX_ERROR;
+    return Commandstatus::CMD_SYNTAX_ERROR;
   }
   if (email.length() > 255)
   {
 
-    return STRING_TOO_LONG;
+    return Commandstatus::CMD_STRING_TOO_LONG;
   }
 
   // age
   int age;
   if (!(ss >> age))
   {
-    return SYNTAX_ERROR;
+    return Commandstatus::CMD_SYNTAX_ERROR;
   }
   if (age < 0 || age > 100)
   {
 
-    return OUT_OF_RANGE;
+    return Commandstatus::CMD_OUT_OF_RANGE;
   }
 
   // gender
@@ -125,7 +137,7 @@ Commandstatus handle_insert(string sql_command, stmt &statement)
 
   if (!(ss >> gen))
   {
-    return SYNTAX_ERROR;
+    return Commandstatus::CMD_SYNTAX_ERROR;
   }
   if (gen == "male" || gen == "MALE" || gen == "female" || gen == "FEMALE" || gen == "OTHER" || gen == "other")
   {
@@ -144,12 +156,12 @@ Commandstatus handle_insert(string sql_command, stmt &statement)
   }
   else
   {
-    return SYNTAX_ERROR;
+    return Commandstatus::CMD_SYNTAX_ERROR;
   }
 
   string leftover;
   if (ss >> leftover)
-    return SYNTAX_ERROR;
+    return Commandstatus::CMD_SYNTAX_ERROR;
 
   uint32_t final_id = static_cast<uint32_t>(id);
   char final_username[32];
@@ -170,7 +182,7 @@ Commandstatus handle_insert(string sql_command, stmt &statement)
   statement.type = INSERT;
 
   cout << " insertion parsed." << endl;
-  return SUCCESS;
+  return Commandstatus::CMD_SUCCESS;
 }
 Commandstatus handle_update(string sql_command, stmt &statement)
 {
@@ -178,7 +190,7 @@ Commandstatus handle_update(string sql_command, stmt &statement)
   string words;
   if (!(ss >> words))
   {
-    return SYNTAX_ERROR;
+    return Commandstatus::CMD_SYNTAX_ERROR;
   }
   int id;
   string username;
@@ -187,47 +199,47 @@ Commandstatus handle_update(string sql_command, stmt &statement)
   // id
   if (!(ss >> id))
   {
-    return SYNTAX_ERROR;
+    return Commandstatus::CMD_SYNTAX_ERROR;
   }
   if (id < 0)
   {
 
-    return NEGATIVE_INT;
+    return Commandstatus::CMD_NEGATIVE_INT;
   }
 
   // username
   if (!(ss >> username))
   {
 
-    return SYNTAX_ERROR;
+    return Commandstatus::CMD_SYNTAX_ERROR;
   }
   if (username.length() > 32)
   {
 
-    return STRING_TOO_LONG;
+    return Commandstatus::CMD_STRING_TOO_LONG;
   }
 
   // email
   if (!(ss >> email))
   {
-    return SYNTAX_ERROR;
+    return Commandstatus::CMD_SYNTAX_ERROR;
   }
   if (email.length() > 255)
   {
 
-    return STRING_TOO_LONG;
+    return Commandstatus::CMD_STRING_TOO_LONG;
   }
 
   // age
   int age;
   if (!(ss >> age))
   {
-    return SYNTAX_ERROR;
+    return Commandstatus::CMD_SYNTAX_ERROR;
   }
   if (age < 0 || age > 100)
   {
 
-    return OUT_OF_RANGE;
+    return Commandstatus::CMD_OUT_OF_RANGE;
   }
 
   // gender
@@ -236,7 +248,7 @@ Commandstatus handle_update(string sql_command, stmt &statement)
 
   if (!(ss >> gen))
   {
-    return SYNTAX_ERROR;
+    return Commandstatus::CMD_SYNTAX_ERROR;
   }
   if (gen == "male" || gen == "female" || gen == "other")
   {
@@ -255,12 +267,12 @@ Commandstatus handle_update(string sql_command, stmt &statement)
   }
   else
   {
-    return SYNTAX_ERROR;
+    return Commandstatus::CMD_SYNTAX_ERROR;
   }
 
   string leftover;
   if (ss >> leftover)
-    return SYNTAX_ERROR;
+    return Commandstatus::CMD_SYNTAX_ERROR;
 
   uint32_t final_id = static_cast<uint32_t>(id);
   char final_username[32];
@@ -278,7 +290,7 @@ Commandstatus handle_update(string sql_command, stmt &statement)
   statement.type = UPDATE;
 
   cout << "updation parsed." << endl;
-  return SUCCESS;
+  return Commandstatus::CMD_SUCCESS;
 }
 
 Commandstatus handle_delete(string sql_command, stmt &statement)
@@ -288,24 +300,24 @@ Commandstatus handle_delete(string sql_command, stmt &statement)
 
   if (!(ss >> words))
   {
-    return SYNTAX_ERROR;
+    return Commandstatus::CMD_SYNTAX_ERROR;
   }
   int id;
 
   // id
   if (!(ss >> id))
   {
-    return SYNTAX_ERROR;
+    return Commandstatus::CMD_SYNTAX_ERROR;
   }
   if (id < 0)
   {
-    return NEGATIVE_INT;
+    return Commandstatus::CMD_NEGATIVE_INT;
   }
 
   string leftover;
   if (ss >> leftover)
   {
-    return SYNTAX_ERROR;
+    return Commandstatus::CMD_SYNTAX_ERROR;
   }
 
   uint32_t final_id = static_cast<uint32_t>(id);
@@ -314,7 +326,7 @@ Commandstatus handle_delete(string sql_command, stmt &statement)
   statement.type = DELETE;
 
   cout << "deletion parsed." << endl;
-  return SUCCESS;
+  return Commandstatus::CMD_SUCCESS;
 }
 
 Commandstatus handle_select(string sql_command, stmt &statement)
@@ -323,18 +335,18 @@ Commandstatus handle_select(string sql_command, stmt &statement)
   string words;
   if (!(ss >> words))
   {
-    return SYNTAX_ERROR;
+    return Commandstatus::CMD_SYNTAX_ERROR;
   }
   string leftover;
   if (ss >> leftover)
   {
-    return SYNTAX_ERROR;
+    return Commandstatus::CMD_SYNTAX_ERROR;
   }
 
   statement.type = SELECT;
 
   cout << "selection parsed." << endl;
-  return SUCCESS;
+  return Commandstatus::CMD_SUCCESS;
 }
 
 Commandstatus handle_create(string sql_command, stmt &statement)
@@ -343,24 +355,24 @@ Commandstatus handle_create(string sql_command, stmt &statement)
   string first_word;
   if (!(ss >> first_word))
   {
-    return SYNTAX_ERROR;
+    return Commandstatus::CMD_SYNTAX_ERROR;
   }
 
   string second_word;
   if (!(ss >> second_word))
   {
-    return SYNTAX_ERROR;
+    return Commandstatus::CMD_SYNTAX_ERROR;
   }
   string leftover;
   if ((ss >> leftover))
   {
-    return SYNTAX_ERROR;
+    return Commandstatus::CMD_SYNTAX_ERROR;
   }
 
   statement.type = CREATE_TABLE;
 
   cout << "create table parsed." << endl;
-  return SUCCESS;
+  return Commandstatus::CMD_SUCCESS;
 }
 
 Commandstatus handle_drop(string sql_command, stmt &statement)
@@ -370,45 +382,45 @@ Commandstatus handle_drop(string sql_command, stmt &statement)
   string first_word;
   if (!(ss >> first_word))
   {
-    return SYNTAX_ERROR;
+    return Commandstatus::CMD_SYNTAX_ERROR;
   }
 
   string second_word;
   if (!(ss >> second_word))
   {
-    return SYNTAX_ERROR;
+    return Commandstatus::CMD_SYNTAX_ERROR;
   }
   string leftover;
   if ((ss >> leftover))
   {
-    return SYNTAX_ERROR;
+    return Commandstatus::CMD_SYNTAX_ERROR;
   }
 
   statement.type = DROP_TABLE;
 
   cout << "drop table parsed." << endl;
-  return SUCCESS;
+  return Commandstatus::CMD_SUCCESS;
 }
 
-Commandstatus handle_SQL_Commands(string sql_command, stmt &statement)
+Commandstatus handle_SQL_Commands(string sql_command, stmt &statement, dbClass *db)
 {
   stringstream ss(sql_command);
   string first_word;
   if (!(ss >> first_word))
   {
-    return SYNTAX_ERROR;
+    return Commandstatus::CMD_SYNTAX_ERROR;
   }
   string final_command = first_word;
   string second_word;
-  if (first_word == "drop" || first_word == "create")
+  if (first_word == "DROP" || first_word == "CREATE")
   {
-    if (ss >> second_word && second_word == "table")
+    if (ss >> second_word && second_word == "TABLE")
     {
       final_command += " " + second_word;
     }
     else
     {
-      return SYNTAX_ERROR;
+      return Commandstatus::CMD_SYNTAX_ERROR;
     }
   }
 
@@ -418,7 +430,7 @@ Commandstatus handle_SQL_Commands(string sql_command, stmt &statement)
   switch (sql_command_type)
   {
   case INSERT:
-    result = handle_insert(sql_command, statement);
+    result = handle_insert(sql_command, statement, db);
     break;
   case DELETE:
     result = handle_delete(sql_command, statement);
@@ -436,7 +448,7 @@ Commandstatus handle_SQL_Commands(string sql_command, stmt &statement)
     result = handle_select(sql_command, statement);
     break;
   default:
-    result = FAILURE;
+    result = Commandstatus::CMD_FAILURE;
   }
 
   return result;

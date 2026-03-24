@@ -1,5 +1,5 @@
 
-#include "input_buffer.h"
+#include "../headers/input_buffer.h"
 
 string inputBuffer::getInputBuffer()
 {

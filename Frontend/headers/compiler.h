@@ -1,7 +1,7 @@
 #pragma once
-#include "common.h"
-using namespace std;
-#include "table.h"
+#include "constants/constant.h"
+#include "storage/row/row.h"
+#include "storage/table/table.h"
 
 typedef struct
 {
@@ -10,22 +10,22 @@ typedef struct
   Row row_data;
 } stmt;
 
-SQLcommandType getCommandType(const string &cmd);
+SQLcommandType getCommandType(const std::string &cmd);
 
-bool handle_meta_commands(string meta_command);
+bool handle_meta_commands(std::string meta_command);
 
-Commandstatus handle_insert(string sql_command, stmt &statement);
+Commandstatus handle_insert(std::string sql_command, stmt &statement);
 
-Commandstatus handle_update(string sql_command, stmt &statement);
+Commandstatus handle_update(std::string sql_command, stmt &statement);
 
-Commandstatus handle_delete(string sql_command, stmt &statement);
+Commandstatus handle_delete(std::string sql_command, stmt &statement);
 
-Commandstatus handle_select(string sql_command, stmt &statement);
+Commandstatus handle_select(std::string sql_command, stmt &statement);
 
-Commandstatus handle_create(string sql_command, stmt &statement);
+Commandstatus handle_create(std::string sql_command, stmt &statement);
 
-Commandstatus handle_drop(string sql_command, stmt &statement);
+Commandstatus handle_drop(std::string sql_command, stmt &statement);
 
-Commandstatus handle_SQL_Commands(string sql_command, stmt &statement);
+Commandstatus handle_SQL_Commands(std::string sql_command, stmt &statement);
 
 void get_current_time(char* buffer,size_t size);
