@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 
+#include "../Pager/pager.h"
 
 //Node Types
  
@@ -42,7 +43,7 @@ constexpr uint32_t LEAF_NODE_HEADER_SIZE =
 constexpr uint32_t LEAF_NODE_KEY_SIZE = sizeof(uint32_t);
 constexpr uint32_t LEAF_NODE_KEY_OFFSET = 0;
 
-constexpr uint32_t LEAF_NODE_VALUE_SIZE = ROW_SIZE;
+constexpr uint32_t LEAF_NODE_VALUE_SIZE =sizeof(uint32_t);
 constexpr uint32_t LEAF_NODE_VALUE_OFFSET =
     LEAF_NODE_KEY_OFFSET + LEAF_NODE_KEY_SIZE;
 

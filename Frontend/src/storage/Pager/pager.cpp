@@ -22,8 +22,7 @@ void* Pager::get_page(uint32_t page_num) {
         }
 
         uint32_t num_pages = file_length / PAGE_SIZE;
-
-        if (file_length % PAGE_SIZE) {
+        if (file_length % PAGE_SIZE != 0) {
             num_pages += 1;
         }
 
@@ -50,8 +49,8 @@ void* Pager::get_page(uint32_t page_num) {
 
         pages[page_num] = page;
 
-        if(page_num>=num_pages) {
-            num_pages=page_num+1;
+        if (page_num >= this->num_pages) {
+            this->num_pages = page_num + 1;
         }
     }
 
@@ -83,4 +82,29 @@ void Pager::flush(uint32_t page_num) {
                   << std::strerror(errno) << "\n";
         std::exit(EXIT_FAILURE);
     }
+}
+
+
+Pager* Pager::pager_open(const char* filename)
+{
+    int fd = open(filename,
+                  O_RDWR | O_CREAT,
+                  S_IWUSR | S_IRUSR);
+
+    if (fd == -1) {
+        std::cerr << "Unable to open file\n";
+        std::exit(EXIT_FAILURE);
+    }
+
+    off_t file_length = lseek(fd, 0, SEEK_END);
+
+    Pager* pager = new Pager();
+    pager->file_descriptor = fd;
+    pager->file_length = file_length;
+
+    for (uint32_t i = 0; i < TABLE_MAX_PAGES; i++) {
+        pager->pages[i] = nullptr;
+    }
+
+    return pager;
 }

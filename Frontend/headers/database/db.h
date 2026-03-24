@@ -1,5 +1,6 @@
 #pragma once
 #include "../storage/table/table.h"
+#include "../storage/Pager/pager.h"
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -14,6 +15,8 @@ public:
                    const std::vector<std::string> &attributes);
   bool deleteTable(const std::string &name);
   Table *selectTable(const std::string &name);
+  static Table* db_open(const char* filename);
+  void db_close(Table* table);
 
   ~dbClass() {
     for (auto &pair : tables) {
@@ -21,4 +24,5 @@ public:
     }
     tables.clear();
   }
+
 };

@@ -15,5 +15,6 @@ class Pager {
 
     void* get_page(uint32_t page_num);
     void flush(uint32_t page_num);
-
+   
+    static Pager* pager_open(const char* filename);
 };
