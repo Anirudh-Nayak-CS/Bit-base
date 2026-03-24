@@ -37,3 +37,10 @@ typedef enum
   OTHER,
   NOT_DEFINED
 } gender;
+
+
+enum ExecuteResult_table {
+  EXECUTE_SUCCESS,
+  EXECUTE_DUPLICATE_KEY,
+  EXECUTE_TABLE_FULL
+};
