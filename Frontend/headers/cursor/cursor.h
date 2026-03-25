@@ -1,6 +1,7 @@
 #pragma once 
 #include "../storage/table/table.h"
 
+
 class Cursor {
     public:
     Table* table;

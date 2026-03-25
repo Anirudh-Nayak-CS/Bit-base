@@ -1,7 +1,8 @@
+#include "../../headers/storage/b_plus_tree/b_plus_tree.h"
 #include "../../headers/cursor/cursor.h"
-#include "../../headers/storage/Pager/pager.h"
 #include "../../headers/storage/table/table.h"
-#include "../../headers/storage/B_tree/node.h"
+#include "../../headers/storage/node/leaf_node.h"
+
 
 
 Cursor* Cursor::table_start(Table* table) {
@@ -11,7 +12,7 @@ Cursor* Cursor::table_start(Table* table) {
     cursor->cell_num = 0;
 
     void* root_node = table->pager->get_page(table->root_page_num);
-    uint32_t num_cells = *leaf_node_num_cells(root_node);
+    uint32_t num_cells = *leafNodeNumCells(root_node);
     cursor->end_of_table = (num_cells == 0);
 
     return cursor;
@@ -22,10 +23,9 @@ Cursor* Cursor::table_find(Table* table, uint32_t key) {
   void* root_node = table->pager->get_page(root_page_num);
 
   if (get_node_type(root_node) == NodeType::LEAF) {
-    return leaf_node_find(table, root_page_num, key);
+    return B_Plus_Tree::leaf_node_find(table, root_page_num, key);
   } else {
-    printf("Implementation of internal node is pending\n");
-    exit(EXIT_FAILURE);
+     return B_Plus_Tree::internal_node_find(table, root_page_num, key);
   }
 }
 
@@ -34,7 +34,7 @@ void* Cursor::cursor_value() {
 
     void* page = table->pager->get_page(page_num);
 
-    return leaf_node_value(page, this->cell_num);
+    return leafNodeValue(page, this->cell_num);
 }
 
 void Cursor::cursor_advance(){
@@ -44,7 +44,7 @@ void Cursor::cursor_advance(){
 
 
     this->cell_num = 1;
-    if (this->cell_num >= (*leaf_node_num_cells(node))) {
+    if (this->cell_num >= (*leafNodeNumCells(node))) {
       this->end_of_table = true;
     }
 }

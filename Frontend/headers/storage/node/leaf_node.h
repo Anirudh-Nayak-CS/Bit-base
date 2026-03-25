@@ -67,6 +67,7 @@ inline void* leafNodeValue(void* node, uint32_t cellNum) {
 
 inline void initializeLeafNode(void* node) {
      set_node_type(node, NodeType::LEAF);
+     set_node_root(node, false);
     *leafNodeNumCells(node) = 0;
 }
 

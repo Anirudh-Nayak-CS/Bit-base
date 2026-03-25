@@ -1,7 +1,7 @@
 #pragma once
 #include <cstdint>
-
 #include "../Pager/pager.h"
+
 
 //Node Types
  
@@ -39,4 +39,18 @@ inline void set_node_type(void* node, NodeType type) {
    *(reinterpret_cast<uint8_t*>(
             reinterpret_cast<char*>(node) + NODE_TYPE_OFFSET
         )) = value;
+}
+
+inline bool is_node_root(void* node) {
+    uint8_t value = *(reinterpret_cast<uint8_t*>(
+        reinterpret_cast<char*>(node) + IS_ROOT_OFFSET
+    ));
+    return static_cast<bool>(value);
+}
+
+inline void set_node_root(void* node, bool is_root) {
+    uint8_t value = static_cast<uint8_t>(is_root);
+    *(reinterpret_cast<uint8_t*>(
+        reinterpret_cast<char*>(node) + IS_ROOT_OFFSET
+    )) = value;
 }

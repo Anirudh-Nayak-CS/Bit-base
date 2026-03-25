@@ -1,4 +1,7 @@
 #include "../../headers/storage/b_plus_tree/b_plus_tree.h"
+#include "../../headers/storage/node/internal_node.h"
+#include "../../headers/storage/node/node_utils.h"
+
 
 void B_Plus_Tree::leaf_node_insert(Cursor* cursor, uint32_t key, Row* value)  {
     void* node = cursor->table->pager->get_page(cursor->page_num);
@@ -28,7 +31,7 @@ void B_Plus_Tree::leaf_node_insert(Cursor* cursor, uint32_t key, Row* value)  {
 }
 
 
- Cursor* B_Plus_Tree::leaf_node_find(Table* table, uint32_t page_num, uint32_t key) {
+   Cursor* B_Plus_Tree::leaf_node_find(Table* table, uint32_t page_num, uint32_t key) {
    void* node = table->pager->get_page(page_num);
    uint32_t num_cells = *leafNodeNumCells(node);
  
@@ -136,4 +139,81 @@ void B_Plus_Tree::create_new_root(Table* table, uint32_t right_child_page_num) {
   *internal_node_key(root, 0) = left_child_max_key;
 
   *internal_node_right_child(root) = right_child_page_num;
+}
+
+
+inline void indent(uint32_t level) {
+    for (uint32_t i = 0; i < level; i++) {
+        std::cout << "  ";
+    }
+}
+
+ void B_Plus_Tree::print_tree(Pager* pager, uint32_t page_num, uint32_t indentation_level) {
+    void* node = pager->get_page(page_num);
+    uint32_t num_keys, child;
+
+    switch (get_node_type(node)) {
+        case NodeType::LEAF: {
+            num_keys = *leafNodeNumCells(node);
+            indent(indentation_level);
+            std::cout << "- leaf (size " << num_keys << ")\n";
+
+            for (uint32_t i = 0; i < num_keys; i++) {
+                indent(indentation_level + 1);
+                std::cout << "- " << *leafNodeKey(node, i) << "\n";
+            }
+            break;
+        }
+
+        case NodeType::INTERNAL: {
+            num_keys = *internal_node_num_keys(node);
+            indent(indentation_level);
+            std::cout << "- internal (size " << num_keys << ")\n";
+
+            for (uint32_t i = 0; i < num_keys; i++) {
+                child = *internal_node_child(node, i);
+                print_tree(pager, child, indentation_level + 1);
+
+                indent(indentation_level + 1);
+                std::cout << "- key " << *internal_node_key(node, i) << "\n";
+            }
+
+            child = *internal_node_right_child(node);
+            print_tree(pager, child, indentation_level + 1);
+            break;
+        }
+    }
+}
+
+Cursor* B_Plus_Tree::internal_node_find(Table* table, uint32_t page_num, uint32_t key) {
+    void* node = table->pager->get_page(page_num);
+    uint32_t num_keys = *internal_node_num_keys(node);
+
+    uint32_t min_index = 0;
+    uint32_t max_index = num_keys;
+
+    while (min_index != max_index) {
+        uint32_t index = (min_index + max_index) / 2;
+        uint32_t key_to_right = *internal_node_key(node, index);
+
+        if (key_to_right >= key) {
+            max_index = index;
+        } else {
+            min_index = index + 1;
+        }
+    }
+
+    uint32_t child_page_num = *internal_node_child(node, min_index);
+    void* child = table->pager->get_page(child_page_num);
+
+    switch (get_node_type(child)) {
+        case NodeType::LEAF:
+            return B_Plus_Tree::leaf_node_find(table, child_page_num, key);
+
+        case NodeType::INTERNAL:
+            return internal_node_find(table, child_page_num, key);
+    }
+
+    std::cerr << "Unknown node type\n";
+    exit(EXIT_FAILURE);
 }
