@@ -11,9 +11,13 @@ constexpr uint32_t LEAF_NODE_NUM_CELLS_SIZE = sizeof(uint32_t);
 constexpr uint32_t LEAF_NODE_NUM_CELLS_OFFSET =
     COMMON_NODE_HEADER_SIZE;
 
-constexpr uint32_t LEAF_NODE_HEADER_SIZE =
-    COMMON_NODE_HEADER_SIZE +
-    LEAF_NODE_NUM_CELLS_SIZE;
+const uint32_t LEAF_NODE_NEXT_LEAF_SIZE = sizeof(uint32_t);
+const uint32_t LEAF_NODE_NEXT_LEAF_OFFSET =
+    LEAF_NODE_NUM_CELLS_OFFSET + LEAF_NODE_NUM_CELLS_SIZE;
+const uint32_t LEAF_NODE_HEADER_SIZE = COMMON_NODE_HEADER_SIZE +
+                                       LEAF_NODE_NUM_CELLS_SIZE +
+                                       LEAF_NODE_NEXT_LEAF_SIZE;
+ 
 
 //Leaf Node Body Layout
 
@@ -63,12 +67,17 @@ inline void* leafNodeValue(void* node, uint32_t cellNum) {
     );
 }
 
+inline uint32_t* leaf_node_next_leaf(void* node) {
+  return reinterpret_cast<uint32_t*>(reinterpret_cast<char*>(node)+ LEAF_NODE_NEXT_LEAF_OFFSET);
+}
+
 // Initialization 
 
 inline void initializeLeafNode(void* node) {
      set_node_type(node, NodeType::LEAF);
      set_node_root(node, false);
-    *leafNodeNumCells(node) = 0;
+    *leafNodeNumCells(node) = 0;   // initially node is empty
+    *leaf_node_next_leaf(node) = 0; // 0 means no sibling
 }
 
 
