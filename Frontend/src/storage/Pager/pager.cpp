@@ -112,3 +112,20 @@ Pager* Pager::pager_open(const char* filename)
 uint32_t Pager::get_unused_page_num() {
   return this->num_pages; 
 }
+
+void Pager::pager_close() {
+    for (uint32_t i = 0; i < num_pages; i++) {
+        if (pages[i] == nullptr) continue;
+
+        flush(i);
+        std::free(pages[i]);
+        pages[i] = nullptr;
+    }
+
+    if (close(file_descriptor) == -1) {
+        std::cerr << "Error closing file\n";
+        std::exit(EXIT_FAILURE);
+    }
+
+    delete this;
+}

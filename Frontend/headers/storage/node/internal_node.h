@@ -4,26 +4,27 @@
 #include <cstdint>
 #include <cstdlib>
 #include <iostream>
+#include <memory>
 
 #define INVALID_PAGE_NUM UINT32_MAX
 
 /* Internal Node Header Layout*/
 
-const uint32_t INTERNAL_NODE_NUM_KEYS_SIZE = sizeof(uint32_t);
-const uint32_t INTERNAL_NODE_NUM_KEYS_OFFSET = COMMON_NODE_HEADER_SIZE;
-const uint32_t INTERNAL_NODE_RIGHT_CHILD_SIZE = sizeof(uint32_t);
-const uint32_t INTERNAL_NODE_RIGHT_CHILD_OFFSET =
+constexpr uint32_t INTERNAL_NODE_NUM_KEYS_SIZE = sizeof(uint32_t);
+constexpr uint32_t INTERNAL_NODE_NUM_KEYS_OFFSET = COMMON_NODE_HEADER_SIZE;
+constexpr uint32_t INTERNAL_NODE_RIGHT_CHILD_SIZE = sizeof(uint32_t);
+constexpr uint32_t INTERNAL_NODE_RIGHT_CHILD_OFFSET =
     INTERNAL_NODE_NUM_KEYS_OFFSET + INTERNAL_NODE_NUM_KEYS_SIZE;
-const uint32_t INTERNAL_NODE_HEADER_SIZE = COMMON_NODE_HEADER_SIZE +
+constexpr uint32_t INTERNAL_NODE_HEADER_SIZE = COMMON_NODE_HEADER_SIZE +
                                            INTERNAL_NODE_NUM_KEYS_SIZE +
                                            INTERNAL_NODE_RIGHT_CHILD_SIZE;
 
 /* Internal Node Body Layout */
 
-const uint32_t INTERNAL_NODE_KEY_SIZE = sizeof(uint32_t);
-const uint32_t INTERNAL_NODE_CHILD_SIZE = sizeof(uint32_t);
-const uint32_t INTERNAL_NODE_MAX_CELLS = 3;
-const uint32_t INTERNAL_NODE_CELL_SIZE =
+constexpr uint32_t INTERNAL_NODE_KEY_SIZE = sizeof(uint32_t);
+constexpr uint32_t INTERNAL_NODE_CHILD_SIZE = sizeof(uint32_t);
+constexpr uint32_t INTERNAL_NODE_MAX_CELLS = 3;
+constexpr uint32_t INTERNAL_NODE_CELL_SIZE =
     INTERNAL_NODE_CHILD_SIZE + INTERNAL_NODE_KEY_SIZE;
 
 // functions

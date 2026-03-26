@@ -1,8 +1,10 @@
 #include "../../headers/storage/b_plus_tree/b_plus_tree.h"
 #include "../../headers/storage/node/internal_node.h"
 #include "../../headers/storage/node/node_utils.h"
+#include "../../headers/storage/table/table.h"
 
-void B_Plus_Tree::leaf_node_insert(Cursor *cursor, uint32_t key, Row *value) {
+void B_Plus_Tree::leaf_node_insert(Cursor *cursor, uint32_t key,
+                                   const Row *value) {
   void *node = cursor->table->pager->get_page(cursor->page_num);
 
   uint32_t num_cells = *leafNodeNumCells(node);
@@ -59,7 +61,7 @@ Cursor *B_Plus_Tree::leaf_node_find(Table *table, uint32_t page_num,
 }
 
 void B_Plus_Tree::leaf_node_split_and_insert(Cursor *cursor, uint32_t key,
-                                             Row *value) {
+                                             const Row *value) {
   /*
   Create a new node and move half the cells over.
   Insert the new value in one of the two nodes.
@@ -331,9 +333,6 @@ void B_Plus_Tree::update_internal_node_key(void *node, uint32_t old_key,
   uint32_t old_child_index = internal_node_find_child(node, old_key);
   *internal_node_key(node, old_child_index) = new_key;
 }
-
-void internal_node_split_and_insert(Table *table, uint32_t parent_page_num,
-                                    uint32_t child_page_num);
 
 // A child node was created/split and  now insert it into the parent
 

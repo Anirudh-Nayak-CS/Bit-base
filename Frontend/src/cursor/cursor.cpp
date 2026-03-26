@@ -3,6 +3,7 @@
 #include "../../headers/storage/node/leaf_node.h"
 #include "../../headers/storage/table/table.h"
 
+
 Cursor *Cursor::table_start(Table *table) {
   Cursor *cursor = table_find(table, 0);
   void *node = table->pager->get_page(cursor->page_num);

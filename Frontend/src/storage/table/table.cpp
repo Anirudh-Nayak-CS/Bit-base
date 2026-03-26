@@ -1,180 +1,54 @@
-// #include "../../../headers/storage/table/table.h"
 
-// #include <functional>
-// #include <iostream>
+#include <vector>
+#include <string>
+#include "../../../headers/storage/table/table.h"
+#include "../../../headers/storage/node/leaf_node.h"
+#include "../../../headers/cursor/cursor.h"
+#include "../../../headers/storage/b_plus_tree/b_plus_tree.h"
 
-// void Table::add_column(const std::string &col_name) {
-//   column_order.push_back(col_name);
-//   Node *new_col = new Node(col_name);
-//   attributeHeaders[col_name] = new Column();
+Table::Table(const std::string& name,
+             const std::vector<std::string>& attrs,
+             const std::string& filename)
+    : name(name), attributes(attrs) {
 
-//   attributeHeaders[col_name]->head = new_col;
-//   attributeHeaders[col_name]->tail = new_col;
+    pager = Pager::pager_open(filename.c_str());
+   
 
-//   if (!attributeHead) {
-//     attributeHead = new_col;
-//     attributeTail = new_col;
-//   } else {
-//     attributeTail->right = new_col;
-//     new_col->left = attributeTail;
-//     attributeTail = new_col;
-//   }
-// }
+    if (pager->num_pages == 0) {
+       void* root = pager->get_page(0);
+        initializeLeafNode(root);
+        root_page_num = 0;
+    } else {
+        root_page_num = 0;
+    }
+}
 
-// void Table::add_row(const std::vector<std::string> &values) {
-//   if (values.size() != attributeHeaders.size()) {
-//     std::cout << "Number of values does not match the number of columns."
-//               << std::endl;
-//     throw Commandstatus::CMD_FAILURE;
-//   }
 
-//   Node *prev_node = nullptr;
-//   Node *row_head = nullptr;
-//   for (size_t i = 0; i < values.size(); ++i) {
+Cursor* Table::find(uint32_t key) {
+    return B_Plus_Tree::internal_node_find(this, root_page_num, key);
+}
 
-//     const std::string &col_name = column_order[i];
+void Table::insert(uint32_t key, const Row& value) {
+    Cursor* cursor = find(key);
 
-//     Node *new_node = new Node(values[i]);
-//     Column *col = attributeHeaders[col_name];
+    void* node = pager->get_page(cursor->page_num);
+    uint32_t num_cells = *leafNodeNumCells(node);
 
-//     // Link vertically
-//     if (col->tail) {
-//       col->tail->down = new_node;
-//       new_node->up = col->tail;
-//     }
-//     col->tail = new_node;
+    // check duplicate
+    if (cursor->cell_num < num_cells) {
+        uint32_t key_at_index = *leafNodeKey(node, cursor->cell_num);
+        if (key_at_index == key) {
+            std::cerr << "Duplicate key\n";
+            delete cursor;
+            return;
+        }
+    }
 
-//     // Link horizontally
-//     if (prev_node) {
-//       prev_node->right = new_node;
-//       new_node->left = prev_node;
-//     } else {
-//       row_head = new_node;
-//     }
-//     prev_node = new_node;
-//   }
+    return B_Plus_Tree::leaf_node_insert(cursor, key, &value);
+    delete cursor;
+}
 
-//   // Increment the global row counter and add to the map
-//   int row_id = ++globalRowCounter;
-//   rowMap[row_id] = row_head;
+ Table::~Table() {
+    pager->pager_close();
+};
 
-//   // Adding the row ID to the B+ -tree
-//   bTree.insertEntry(, row_id);
-// }
-
-// void Table::delete_row(int row_id) {
-
-//   auto it = rowMap.find(row_id);
-//   if (it == rowMap.end()) {
-//     std::cout << "Row ID not found." << std::endl;
-//     return;
-//   }
-
-//   Node *current = it->second;
-//   int i = 0;
-
-//   // Delete the row from the column structures
-//   while (current) {
-//     Node *next = current->right;
-
-//     std::string col_name = column_order[i];
-//     Column *col = attributeHeaders[col_name];
-
-//     // 1. Vertical Link: Update Head or Up-Pointer
-//     if (!current->up) {
-//       col->head = current->down; // deleting the top row, move head down
-//     } else {
-//       current->up->down = current->down;
-//     }
-
-//     // 2. Vertical Link: Update Tail or Down-Pointer
-//     if (!current->down) {
-//       col->tail = current->up; // deleting the bottom row, move tail up
-//     } else {
-//       current->down->up = current->up;
-//     }
-
-//     delete current;
-//     current = next;
-//     ++i; // Move to the next column name
-//   }
-
-//   rowMap.erase(it);
-
-//   // bTree.remove(row_id);
-// }
-
-// void Table::update_row(const std::function<bool(const Node *)> &condition,
-//                        const std::vector<std::string> &new_values) {
-
-//   for (auto &[row_id, row_head] : rowMap) {
-//     Node *current = row_head;
-
-//     // Check if the row satisfies the condition
-//     if (condition(current)) {
-//       int i = 0;
-//       while (current && i < new_values.size()) {
-//         current->data = new_values[i];
-//         current = current->right;
-//         ++i;
-//       }
-//     }
-//   }
-// }
-
-// void Table::delete_column(const std::string &col_name) {
-//   // 1. Check if the column actually exists
-//   auto it = attributeHeaders.find(col_name);
-//   if (it == attributeHeaders.end()) {
-//     std::cout << "Column '" << col_name << "' not found." << std::endl;
-//     return;
-//   }
-
-//   // 2. Find the index of the column to delete
-//   int col_index = -1;
-//   for (size_t i = 0; i < column_order.size(); ++i) {
-//     if (column_order[i] == col_name) {
-//       col_index = i;
-//       break;
-//     }
-//   }
-
-//   // handling deletion of the first column
-//   if (col_index == 0) {
-//     for (auto &[row_id, row_head] : rowMap) {
-//       if (row_head) {
-//         rowMap[row_id] = row_head->right;
-//       }
-//     }
-//   }
-
-//   // 4. Traverse down the column and surgically remove nodes
-//   Column *col = it->second;
-//   Node *current = col->head;
-
-//   while (current) {
-//     Node *next_down = current->down;
-//     // Fix the Left-to-Right links
-//     if (current->left) {
-//       current->left->right = current->right;
-//     } else if (current == attributeHead) {
-
-//       attributeHead = current->right;
-//     }
-
-//     // Fix the Right-to-Left links
-//     if (current->right) {
-//       current->right->left = current->left;
-//     } else if (current == attributeTail) {
-
-//       attributeTail = current->left;
-//     }
-
-//     delete current;
-//     current = next_down;
-//   }
-
-//   delete it->second;
-//   attributeHeaders.erase(it);
-//   column_order.erase(column_order.begin() + col_index);
-// }
