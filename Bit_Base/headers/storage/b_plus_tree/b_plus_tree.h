@@ -9,11 +9,11 @@ struct Row;
 class B_Plus_Tree {
 public:
   
-  static void leaf_node_insert(Cursor* cursor, uint32_t key, const Row* value);
-
-  static void leaf_node_split_and_insert(Cursor* cursor, uint32_t key,
-                                         const Row* value);
-
+ static void leaf_node_insert(Cursor* cursor, uint32_t key,
+                                 const void* data, uint32_t size);
+ 
+ static void leaf_node_split_and_insert(Cursor* cursor, uint32_t key,
+                                           const void* data, uint32_t size);
   static void create_new_root(Table* table, uint32_t right_child_page_num);
 
   static void print_tree(Pager* pager, uint32_t page_num,

@@ -1,6 +1,5 @@
 #pragma once
 #include "../../cursor/cursor.h"
-#include "../row/row.h"
 #include "node.h"
 #include <iostream>
 #define INVALID_PAGE_NUM UINT32_MAX
@@ -25,7 +24,7 @@ constexpr uint32_t LEAF_NODE_HEADER_SIZE = COMMON_NODE_HEADER_SIZE +
 constexpr uint32_t LEAF_NODE_KEY_SIZE = sizeof(uint32_t);
 constexpr uint32_t LEAF_NODE_KEY_OFFSET = 0;
 
-constexpr uint32_t LEAF_NODE_VALUE_SIZE = ROW_SIZE;
+constexpr uint32_t LEAF_NODE_VALUE_SIZE = 512;
 constexpr uint32_t LEAF_NODE_VALUE_OFFSET =
     LEAF_NODE_KEY_OFFSET  + LEAF_NODE_KEY_SIZE;
 

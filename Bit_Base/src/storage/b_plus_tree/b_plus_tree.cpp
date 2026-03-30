@@ -1,32 +1,34 @@
-#include "../../headers/storage/b_plus_tree/b_plus_tree.h"
-#include "../../headers/storage/node/internal_node.h"
-#include "../../headers/storage/node/node_utils.h"
-#include "../../headers/storage/table/table.h"
+#include "../../../headers/storage/b_plus_tree/b_plus_tree.h"
+#include "../../../headers/storage/node/internal_node.h"
+#include "../../../headers/storage/node/node_utils.h"
+#include "../../../headers/storage/table/table.h"
 #include <memory>
+#include <cstring>
 
-void B_Plus_Tree::leaf_node_insert(Cursor *cursor, uint32_t key,
-                                   const Row *value) {
-  void *node = cursor->table->pager->get_page(cursor->page_num);
-
-  uint32_t num_cells = *leafNodeNumCells(node);
-
-  if (num_cells >= LEAF_NODE_MAX_CELLS) {
-    leaf_node_split_and_insert(cursor, key, value);
-    return;
-  }
-
-  if (cursor->cell_num < num_cells) {
-    for (uint32_t i = num_cells; i > cursor->cell_num; i--) {
-      std::memcpy(leafNodeCell(node, i), leafNodeCell(node, i - 1),
-                  LEAF_NODE_CELL_SIZE);
+void B_Plus_Tree::leaf_node_insert(Cursor* cursor, uint32_t key,
+                                   const void* data, uint32_t size) {
+    void* node = cursor->table->pager->get_page(cursor->page_num);
+    uint32_t num_cells = *leafNodeNumCells(node);
+ 
+    if (num_cells >= LEAF_NODE_MAX_CELLS) {
+        leaf_node_split_and_insert(cursor, key, data, size);
+        return;
     }
-  }
-
-  *(leafNodeNumCells(node)) += 1;
-
-  *leafNodeKey(node, cursor->cell_num) = key;
-
-  value->serialize(leafNodeValue(node, cursor->cell_num));
+ 
+    if (cursor->cell_num < num_cells) {
+        for (uint32_t i = num_cells; i > cursor->cell_num; i--) {
+            std::memcpy(leafNodeCell(node, i),
+                        leafNodeCell(node, i - 1),
+                        LEAF_NODE_CELL_SIZE);
+        }
+    }
+ 
+    *(leafNodeNumCells(node)) += 1;
+    *leafNodeKey(node, cursor->cell_num) = key;
+ 
+    // zero the slot first so unused bytes are clean, then copy data in
+    std::memset(leafNodeValue(node, cursor->cell_num), 0, LEAF_NODE_VALUE_SIZE);
+    std::memcpy(leafNodeValue(node, cursor->cell_num), data, size);
 }
 
 std::unique_ptr<Cursor>
@@ -61,54 +63,61 @@ B_Plus_Tree::leaf_node_find(Table *table, uint32_t page_num, uint32_t key) {
   return cursor;
 }
 
-void B_Plus_Tree::leaf_node_split_and_insert(Cursor *cursor, uint32_t key,
-                                             const Row *value) {
-                                               std::cout << "  [split] page=" << cursor->page_num << " key=" << key << "\n";  
-  void *old_node = cursor->table->pager->get_page(cursor->page_num);
-  uint32_t old_max_key = get_node_max_key(cursor->table->pager, old_node);
-  uint32_t new_page_num = cursor->table->pager->get_unused_page_num();
-  void *new_node = cursor->table->pager->get_page(new_page_num);
-  initializeLeafNode(new_node);
-  *node_parent(new_node) = *node_parent(old_node);
-  *leaf_node_next_leaf(new_node) = *leaf_node_next_leaf(old_node);
-  *leaf_node_next_leaf(old_node) = new_page_num;
-
-  for (int32_t i = LEAF_NODE_MAX_CELLS; i >= 0; i--) {
-    void *destination_node;
-    uint32_t index_within_node;
-    if (i >= LEAF_NODE_LEFT_SPLIT_COUNT) {
-      destination_node = new_node;
-      index_within_node = i - LEAF_NODE_LEFT_SPLIT_COUNT;
-    } else {
-      destination_node = old_node;
-      index_within_node = i;
+void B_Plus_Tree::leaf_node_split_and_insert(Cursor* cursor, uint32_t key,
+                                             const void* data, uint32_t size) {
+    std::cout << "  [split] page=" << cursor->page_num << " key=" << key << "\n";
+ 
+    void* old_node = cursor->table->pager->get_page(cursor->page_num);
+    uint32_t old_max_key = get_node_max_key(cursor->table->pager, old_node);
+    uint32_t new_page_num = cursor->table->pager->get_unused_page_num();
+    void* new_node = cursor->table->pager->get_page(new_page_num);
+    initializeLeafNode(new_node);
+    *node_parent(new_node)        = *node_parent(old_node);
+    *leaf_node_next_leaf(new_node) = *leaf_node_next_leaf(old_node);
+    *leaf_node_next_leaf(old_node) = new_page_num;
+ 
+    for (int32_t i = LEAF_NODE_MAX_CELLS; i >= 0; i--) {
+        void* destination_node;
+        uint32_t index_within_node;
+ 
+        if (i >= (int32_t)LEAF_NODE_LEFT_SPLIT_COUNT) {
+            destination_node   = new_node;
+            index_within_node  = i - LEAF_NODE_LEFT_SPLIT_COUNT;
+        } else {
+            destination_node  = old_node;
+            index_within_node = i;
+        }
+ 
+        void* destination = leafNodeCell(destination_node, index_within_node);
+ 
+        if (i == (int32_t)cursor->cell_num) {
+            // write new key + new data into slot
+            *leafNodeKey(destination_node, index_within_node) = key;
+            std::memset(leafNodeValue(destination_node, index_within_node), 0,
+                        LEAF_NODE_VALUE_SIZE);
+            std::memcpy(leafNodeValue(destination_node, index_within_node),
+                        data, size);
+        } else if (i > (int32_t)cursor->cell_num) {
+            std::memcpy(destination, leafNodeCell(old_node, i - 1), LEAF_NODE_CELL_SIZE);
+        } else {
+            std::memcpy(destination, leafNodeCell(old_node, i), LEAF_NODE_CELL_SIZE);
+        }
     }
-    void *destination = leafNodeCell(destination_node, index_within_node);
-    if (i == cursor->cell_num) {
-      *leafNodeKey(destination_node, index_within_node) = key;
-      value->serialize(leafNodeValue(destination_node, index_within_node));
-    } else if (i > cursor->cell_num) {
-      memcpy(destination, leafNodeCell(old_node, i - 1), LEAF_NODE_CELL_SIZE);
+ 
+    *(leafNodeNumCells(old_node)) = LEAF_NODE_LEFT_SPLIT_COUNT;
+    *(leafNodeNumCells(new_node)) = LEAF_NODE_RIGHT_SPLIT_COUNT;
+ 
+    if (is_node_root(old_node)) {
+        return create_new_root(cursor->table, new_page_num);
     } else {
-      memcpy(destination, leafNodeCell(old_node, i), LEAF_NODE_CELL_SIZE);
+        uint32_t parent_page_num = *node_parent(old_node);
+        uint32_t new_key = get_node_max_key(cursor->table->pager, old_node);
+        void* parent = cursor->table->pager->get_page(parent_page_num);
+        update_internal_node_key(parent, old_max_key, new_key);
+        internal_node_insert(cursor->table, parent_page_num, new_page_num);
     }
-  }
-
-  *(leafNodeNumCells(old_node)) = LEAF_NODE_LEFT_SPLIT_COUNT;
-  *(leafNodeNumCells(new_node)) = LEAF_NODE_RIGHT_SPLIT_COUNT;
-
-  if (is_node_root(old_node)) {
-    return create_new_root(cursor->table, new_page_num);
-  } else {
-    uint32_t parent_page_num = *node_parent(old_node);
-   
-    uint32_t new_key = get_node_max_key(cursor->table->pager, old_node);
-    void *parent = cursor->table->pager->get_page(parent_page_num);
-    update_internal_node_key(parent, old_max_key, new_key);
-    internal_node_insert(cursor->table, parent_page_num, new_page_num);
-    return;
-  }
 }
+ 
 
 void B_Plus_Tree::create_new_root(Table *table, uint32_t right_child_page_num) {
      std::cout << "  [create_new_root] root_page=" << table->root_page_num 

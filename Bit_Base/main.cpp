@@ -1,79 +1,88 @@
-#include "headers/input_buffer.h"
-#include "headers/compiler.h"
-#include "headers/virtual_machine.h"
+#include <iostream>
+#include <string>
+#include <algorithm>
+#include "headers/tokenizer/tokenizer.h"
+#include "headers/parser/parser.h"
+#include "headers/vm/vm.h"
 #include "headers/storage/database/db.h"
 
-void print_prompt() { cout << "db > "; }
+static void printPrompt() {
+    std::cout << "bitbase> ";
+}
 
-int main()
-{
-  db *database = db::db_open("db");
-  inputBuffer *input_buffer = new inputBuffer();
-  
-  try {
-    while (true)
-    {
-      print_prompt();
-
-      try {
-        input_buffer->read_input();
-      } catch (const std::runtime_error& e) {
-        cout << "EOF reached - exiting database" << endl;
-        break;
-      }
-      
-      string buffer = input_buffer->getInputBuffer();
-      if (buffer.empty())
-      {
-        continue;
-      }
-      if (buffer[0] == '.')
-      {
-        bool meta_result = handle_meta_commands(buffer);
-        switch (meta_result)
-        {
-        case true:
-          cout << "Successfully handled the meta-command" << endl;
-          continue;
-        case false:
-          cout << "Error while handling meta-command" << endl;
-          continue;
-        }
-      }
-      stmt statement;
-      Commandstatus sql_result = handle_SQL_Commands(buffer, statement, database);
-      switch (sql_result)
-      {
-      case Commandstatus::CMD_SUCCESS:
-        execute_statement(statement);
-        continue;
-      case Commandstatus::CMD_STRING_TOO_LONG:
-        cout << "Error: Input string is too long (Username < 32 chars, Email < 255)." << endl;
-        break;
-
-      case Commandstatus::CMD_NEGATIVE_INT:
-        cout << "Error: ID cannot be negative." << endl;
-        break;
-
-      case Commandstatus::CMD_SYNTAX_ERROR:
-        cout << "Error: Syntax error. Could not parse command." << endl;
-        break;
-
-      case Commandstatus::CMD_OUT_OF_RANGE:
-        cout << "Error: Age was out of range (age > 0 and age < 100)" << endl;
-        break;
-      default:
-        cout << "Error: Unknown error while handling SQL command." << endl;
-        break;
-      }
+static bool handleMeta(const std::string& input, db* database) {
+    if (input == ".exit") {
+        database->db_close();
+        std::cout << "Bye.\n";
+        exit(0);
     }
-  } catch (const std::exception& e) {
-    cout << "Error: " << e.what() << endl;
-  }
-  
-  cout << "Closing database..." << endl;
-  database->db_close();
-  delete database;
-  delete input_buffer;
-  return EXIT_SUCCESS;
+    if (input == ".tables") {
+        for (auto& [name, _] : database->tables)
+            std::cout << "  " << name << "\n";
+        return true;
+    }
+    if (input == ".help") {
+        std::cout <<
+            "Meta commands:\n"
+            "  .exit                                        exit\n"
+            "  .tables                                      list tables\n"
+            "  .help                                        this message\n"
+            "\nSQL:\n"
+            "  INSERT INTO <table> <id> <user> <email> <age> <gender>\n"
+            "  SELECT FROM <table>\n"
+            "  SELECT FROM <table> WHERE id = <n>\n"
+            "  UPDATE <table> <id> <user> <email> <age> <gender>\n"
+            "  DELETE FROM <table> WHERE id = <n>\n"
+            "  CREATE TABLE <name>\n"
+            "  DROP TABLE <name>\n";
+        return true;
+    }
+    std::cout << "Unknown meta command: " << input << "\n";
+    return false;
+}
+
+int main(int argc, char* argv[]) {
+    const char* dbname = (argc >= 2) ? argv[1] : "bitbase_db";
+    db* database = db::db_open(dbname);
+
+    std::cout << "BitBase   (db: " << dbname << ")\n";
+    std::cout << "Type .help for commands.\n\n";
+
+    std::string line;
+    while (true) {
+        printPrompt();
+        if (!std::getline(std::cin, line)) break;
+
+        // trim leading/trailing whitespace
+        size_t s = line.find_first_not_of(" \t\r\n");
+        if (s == std::string::npos) continue;
+        line = line.substr(s);
+        size_t e = line.find_last_not_of(" \t\r\n");
+        if (e != std::string::npos) line = line.substr(0, e + 1);
+
+        if (line.empty()) continue;
+
+        // meta commands
+        if (line[0] == '.') {
+            handleMeta(line, database);
+            continue;
+        }
+
+        // tokenize
+        auto tokens = tokenize(line);
+
+        // parse
+        auto result = parse(tokens);
+        if (!result.success) {
+            std::cout << "Parse error: " << result.error << "\n";
+            continue;
+        }
+
+        // execute
+        std::string output = execute(*result.node, database);
+        std::cout << output << "\n";
+    }
+
+    database->db_close();
+    return 0;
 }

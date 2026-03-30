@@ -1,5 +1,5 @@
 
-#include "../headers/input_buffer.h"
+#include "../../headers/input_buffer/input_buffer.h"
 #include <stdexcept>
 
 string inputBuffer::getInputBuffer()
@@ -12,5 +12,5 @@ void inputBuffer::read_input()
   if (!std::getline(cin, m_buffer)) {
     throw std::runtime_error("Failed to read input from stdin");
   }
-  // Empty input is valid - let caller decide how to handle it
+ 
 }
