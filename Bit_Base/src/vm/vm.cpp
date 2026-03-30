@@ -20,39 +20,51 @@ ExecuteResult VM::execute(const Statement& stmt) {
 
 //  INSERT
 
+// helper: insert a single row of raw string values into the table
+static ExecuteResult insertOneRow(Table* table,
+                                  const Schema& schema,
+                                  const std::vector<std::string>& values) {
+    if (values.size() != schema.columns.size())
+        return ExecuteResult::EXECUTE_SCHEMA_MISMATCH;
+
+    Row row;
+    try {
+        int pk_idx = schema.primaryKeyIndex();
+        if (pk_idx == -1) return ExecuteResult::EXECUTE_SCHEMA_MISMATCH;
+
+        row.id = static_cast<uint32_t>(std::stoi(values[pk_idx]));
+
+        for (size_t i = 0; i < schema.columns.size(); ++i)
+            row.fields.push_back(parseValue(values[i], schema.columns[i].type));
+    } catch (...) {
+        return ExecuteResult::EXECUTE_TYPE_ERROR;
+    }
+
+    auto bytes = serializeRow(row);
+    if (bytes.size() > LEAF_NODE_VALUE_SIZE)
+        return ExecuteResult::EXECUTE_ROW_TOO_LARGE;
+
+    table->insert(row.id, bytes.data(), static_cast<uint32_t>(bytes.size()));
+    return ExecuteResult::EXECUTE_SUCCESS;
+}
+
 ExecuteResult VM::executeInsert(const Statement& stmt) {
     Table* table = db_->getTable(stmt.table_name);
     if (!table) return ExecuteResult::EXECUTE_TABLE_NOT_FOUND;
 
     const Schema& schema = table->schema;
 
-    if (stmt.insert_values.size() != schema.columns.size())
-        return ExecuteResult::EXECUTE_SCHEMA_MISMATCH;
-
-    // build typed Row
-    Row row;
-    try {
-        // Find the primary key column from schema
-        int pk_idx = schema.primaryKeyIndex();
-        if (pk_idx == -1) return ExecuteResult::EXECUTE_SCHEMA_MISMATCH;
-        
-        row.id = static_cast<uint32_t>(std::stoi(stmt.insert_values[pk_idx]));
-
-        for (size_t i = 0; i < schema.columns.size(); ++i)
-            row.fields.push_back(parseValue(stmt.insert_values[i],
-                                            schema.columns[i].type));
-    } catch (...) {
-        return ExecuteResult::EXECUTE_TYPE_ERROR;
+    // multi-row path (parser always populates multi_insert_rows)
+    if (!stmt.multi_insert_rows.empty()) {
+        for (const auto& row_vals : stmt.multi_insert_rows) {
+            ExecuteResult r = insertOneRow(table, schema, row_vals);
+            if (r != ExecuteResult::EXECUTE_SUCCESS) return r;
+        }
+        return ExecuteResult::EXECUTE_SUCCESS;
     }
 
-    // VM serializes here — Table receives flat bytes, knows nothing about Row
-    auto bytes = serializeRow(row);
-
-    if (bytes.size() > LEAF_NODE_VALUE_SIZE)
-        return ExecuteResult::EXECUTE_ROW_TOO_LARGE;
-
-    table->insert(row.id, bytes.data(), static_cast<uint32_t>(bytes.size()));
-    return ExecuteResult::EXECUTE_SUCCESS;
+    // fallback  single-row path via insert_values
+    return insertOneRow(table, schema, stmt.insert_values);
 }
 
 
@@ -75,14 +87,11 @@ ExecuteResult VM::executeSelect(const Statement& stmt) {
     }
     std::cout << "\n" << std::string(40, '-') << "\n";
 
-    std::unique_ptr<Cursor> cursor =  Cursor::table_start(table);
+    std::unique_ptr<Cursor> cursor = Cursor::table_start(table);
 
     while (!cursor->end_of_table) {
-        // VM deserializes raw bytes → typed Row using the Schema
         void* raw = cursor->cursor_value();
         Row   row = deserializeRow(raw, schema);
-
-        
 
         if (stmt.select_cols.empty()) {
             printRow(row, schema);
@@ -102,10 +111,7 @@ ExecuteResult VM::executeSelect(const Statement& stmt) {
 }
 
 
-
 //  UPDATE
-//  deserialize → patch fields → re-serialize into same cell slot
-
 
 ExecuteResult VM::executeUpdate(const Statement& stmt) {
     Table* table = db_->getTable(stmt.table_name);
@@ -115,19 +121,16 @@ ExecuteResult VM::executeUpdate(const Statement& stmt) {
 
     if (stmt.assignments.empty()) return ExecuteResult::EXECUTE_SCHEMA_MISMATCH;
 
-    // Find the primary key column from schema (defaults to first column if none marked)
     int pk_idx = schema.primaryKeyIndex();
     if (pk_idx == -1) return ExecuteResult::EXECUTE_SCHEMA_MISMATCH;
 
-    // Extract ID from the assignment that updates the primary key column
     uint32_t target_id = 0;
     bool found_pk = false;
 
     for (const auto& a : stmt.assignments) {
         int idx = schema.indexOf(a.col);
         if (idx == -1) return ExecuteResult::EXECUTE_COLUMN_NOT_FOUND;
-        
-        // If this assignment is for the primary key column, extract the ID
+
         if (idx == pk_idx) {
             try {
                 target_id = static_cast<uint32_t>(std::stoi(a.raw_value));
@@ -147,7 +150,6 @@ ExecuteResult VM::executeUpdate(const Statement& stmt) {
     Row   row  = deserializeRow(cell, schema);
     if (row.id != target_id) return ExecuteResult::EXECUTE_KEY_NOT_FOUND;
 
-    // Apply all assignments to row fields
     for (const auto& a : stmt.assignments) {
         int idx = schema.indexOf(a.col);
         if (idx == -1) return ExecuteResult::EXECUTE_COLUMN_NOT_FOUND;
@@ -158,7 +160,6 @@ ExecuteResult VM::executeUpdate(const Statement& stmt) {
         }
     }
 
-    // re-serialize patched row back into the same cell slot in-place
     auto bytes = serializeRow(row);
     std::memset(cell, 0, LEAF_NODE_VALUE_SIZE);
     std::memcpy(cell, bytes.data(), bytes.size());
@@ -166,7 +167,8 @@ ExecuteResult VM::executeUpdate(const Statement& stmt) {
     return ExecuteResult::EXECUTE_SUCCESS;
 }
 
-//create table
+
+//  CREATE TABLE
 
 ExecuteResult VM::executeCreateTable(const Statement& stmt) {
     if (db_->getTable(stmt.table_name)) return ExecuteResult::EXECUTE_TABLE_EXISTS;
@@ -182,7 +184,8 @@ ExecuteResult VM::executeCreateTable(const Statement& stmt) {
     return ExecuteResult::EXECUTE_SUCCESS;
 }
 
-// drop table 
+
+//  DROP TABLE
 
 ExecuteResult VM::executeDropTable(const Statement& stmt) {
     if (!db_->getTable(stmt.table_name)) return ExecuteResult::EXECUTE_TABLE_NOT_FOUND;
@@ -193,7 +196,8 @@ ExecuteResult VM::executeDropTable(const Statement& stmt) {
     return ExecuteResult::EXECUTE_SUCCESS;
 }
 
-//helpers
+
+//  helpers
 
 void VM::printRow(const Row& row, const Schema& schema) const {
     for (const auto& field : row.fields) {
@@ -213,6 +217,6 @@ std::string VM::resultMessage(ExecuteResult r) {
         case ExecuteResult::EXECUTE_COLUMN_NOT_FOUND: return "Error: column not found";
         case ExecuteResult::EXECUTE_KEY_NOT_FOUND:    return "Error: no row with that id";
         case ExecuteResult::EXECUTE_ROW_TOO_LARGE:    return "Error: serialized row exceeds MAX_ROW_SIZE (512 bytes)";
-        default:                              return "Error: unknown";
+        default:                                      return "Error: unknown";
     }
 }

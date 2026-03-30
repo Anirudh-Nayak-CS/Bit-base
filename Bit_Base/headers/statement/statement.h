@@ -22,6 +22,10 @@ struct Statement {
   // raw string values in schema column order as typed by the user Vm will cast
   // each one to the correct DataType via the  Schema helper functions
   std::vector<std::string> insert_values;
+ 
+
+  // INSERT — multi-row: each inner vector is one row's values
+  std::vector<std::vector<std::string>> multi_insert_rows;
 
   // SELECT
   std::vector<std::string> select_cols;

@@ -82,6 +82,7 @@ void Pager::flush(uint32_t page_num) {
                   << std::strerror(errno) << "\n";
         std::exit(EXIT_FAILURE);
     }
+      file_length = std::max(file_length, (page_num + 1) * PAGE_SIZE);
 }
 
 
@@ -101,7 +102,7 @@ Pager* Pager::pager_open(const char* filename)
     Pager* pager = new Pager();
     pager->file_descriptor = fd;
     pager->file_length = file_length;
-
+    pager->num_pages = (file_length + PAGE_SIZE - 1) / PAGE_SIZE;
     for (uint32_t i = 0; i < TABLE_MAX_PAGES; i++) {
         pager->pages[i] = nullptr;
     }
@@ -116,6 +117,7 @@ uint32_t Pager::get_unused_page_num() {
 }
 
 void Pager::pager_close() {
+    if (file_descriptor == -1) return; 
     for (uint32_t i = 0; i < num_pages; i++) {
         if (pages[i] == nullptr) continue;
 
@@ -128,8 +130,8 @@ void Pager::pager_close() {
         std::cerr << "Error closing file\n";
         std::exit(EXIT_FAILURE);
     }
-
-    delete this;
+   file_descriptor = -1; 
+  
 }
 
 Pager::~Pager() {

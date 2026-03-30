@@ -51,4 +51,9 @@ void Table::insert(uint32_t key, const void* data, uint32_t size) {
     B_Plus_Tree::leaf_node_insert(cursor.get(), key, data, size);
 }
 
-Table::~Table() {}
+Table::~Table() {
+     if (pager) {
+        delete pager;
+        pager = nullptr;
+    }
+}

@@ -7,6 +7,7 @@ enum class TokenType {
     IDENTIFIER,   // table names, column names
     NUMBER,       // integers
     STRING,       // quoted or unquoted string values
+    PUNCTUATION,
     END           // end of input
 };
  

@@ -1,10 +1,11 @@
 #include <iostream>
 #include <string>
-#include <algorithm>
 #include "headers/tokenizer/tokenizer.h"
 #include "headers/parser/parser.h"
 #include "headers/vm/vm.h"
 #include "headers/storage/database/db.h"
+#include "headers/statement/statement.h"
+#include "headers/constants/constant.h"
 
 static void printPrompt() {
     std::cout << "bitbase> ";
@@ -28,12 +29,10 @@ static bool handleMeta(const std::string& input, db* database) {
             "  .tables                                      list tables\n"
             "  .help                                        this message\n"
             "\nSQL:\n"
-            "  INSERT INTO <table> <id> <user> <email> <age> <gender>\n"
-            "  SELECT FROM <table>\n"
-            "  SELECT FROM <table> WHERE id = <n>\n"
-            "  UPDATE <table> <id> <user> <email> <age> <gender>\n"
-            "  DELETE FROM <table> WHERE id = <n>\n"
-            "  CREATE TABLE <name>\n"
+            "  INSERT INTO <table> VALUES (<v1>, <v2>, ...), (<v1>, <v2>, ...)\n"
+            "  SELECT * FROM <table>\n"
+            "  UPDATE <table> SET <col1>=<val1> [, <col2>=<val2> ...]\n"
+            "  CREATE TABLE <name> (<col1> <TYPE1> [PRIMARY KEY], <col2> <TYPE2>, ...)\n"
             "  DROP TABLE <name>\n";
         return true;
     }
@@ -72,15 +71,26 @@ int main(int argc, char* argv[]) {
         auto tokens = tokenize(line);
 
         // parse
-        auto result = parse(tokens);
-        if (!result.success) {
-            std::cout << "Parse error: " << result.error << "\n";
+        Statement out;
+        Parser parser;
+        Commandstatus result = parser.parse(tokens, out);
+        if (result != CMD_SUCCESS) {
+            std::cout << "Parse error\n";
             continue;
         }
 
         // execute
-        std::string output = execute(*result.node, database);
-        std::cout << output << "\n";
+        VM vm(database);
+        ExecuteResult exec_result = vm.execute(out);
+
+        if (exec_result != EXECUTE_SUCCESS) {
+            std::cout << VM::resultMessage(exec_result) << "\n";
+        } else if (out.type == INSERT) {
+            size_t count = out.multi_insert_rows.empty() ? 1 : out.multi_insert_rows.size();
+            std::cout << count << " row" << (count == 1 ? "" : "s") << " inserted.\n";
+        } else if (out.type == UPDATE) {
+            std::cout << "1 row updated.\n";
+        }
     }
 
     database->db_close();
