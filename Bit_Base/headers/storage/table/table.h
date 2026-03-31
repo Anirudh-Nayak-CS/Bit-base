@@ -21,7 +21,7 @@ public:
  
     
     // insert serializes the Row internally before calling leaf_node_insert
-    void insert(uint32_t key, const void* data, uint32_t size);
+    bool insert(uint32_t key, const void* data, uint32_t size);
     std::unique_ptr<Cursor> find(uint32_t key);
  
     ~Table();

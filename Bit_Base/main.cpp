@@ -31,7 +31,7 @@ static bool handleMeta(const std::string& input, db* database) {
             "\nSQL:\n"
             "  INSERT INTO <table> VALUES (<v1>, <v2>, ...), (<v1>, <v2>, ...)\n"
             "  SELECT * FROM <table>\n"
-            "  UPDATE <table> SET <col1>=<val1> [, <col2>=<val2> ...]\n"
+            "  UPDATE <table> SET <Primary_key>=<col_no> <col1>=<val1> [, <col2>=<val2> ...]\n"
             "  CREATE TABLE <name> (<col1> <TYPE1> [PRIMARY KEY], <col2> <TYPE2>, ...)\n"
             "  DROP TABLE <name>\n";
         return true;

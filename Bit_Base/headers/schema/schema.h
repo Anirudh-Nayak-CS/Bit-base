@@ -27,7 +27,7 @@ struct Schema {
       if (columns[i].is_primary_key)
         return static_cast<int>(i);
     // Default to first column if no explicit primary key is marked
-    return columns.empty() ? -1 : 0;
+    return -1;
   }
 
   //  find column index by name (-1 if not found)

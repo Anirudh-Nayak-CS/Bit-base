@@ -26,7 +26,7 @@ std::unique_ptr<Cursor> Table::find(uint32_t key) {
     return Cursor::table_find(this, key);
 }
 
-void Table::insert(uint32_t key, const void* data, uint32_t size) {
+bool Table::insert(uint32_t key, const void* data, uint32_t size) {
     auto cursor = find(key);
 
     void*    node      = pager->get_page(cursor->page_num);
@@ -37,7 +37,7 @@ void Table::insert(uint32_t key, const void* data, uint32_t size) {
         uint32_t key_at_index = *leafNodeKey(node, cursor->cell_num);
         if (key_at_index == key) {
             std::cerr << "Duplicate key\n";
-            return;
+            return false;
         }
     }
 
@@ -45,10 +45,11 @@ void Table::insert(uint32_t key, const void* data, uint32_t size) {
     if (size > LEAF_NODE_VALUE_SIZE) {
         std::cerr << "Row too large to insert (" << size
                   << " bytes, max " << LEAF_NODE_VALUE_SIZE << ")\n";
-        return;
+        return false;
     }
 
     B_Plus_Tree::leaf_node_insert(cursor.get(), key, data, size);
+    return true;
 }
 
 Table::~Table() {
