@@ -1,0 +1,54 @@
+#pragma once
+#define MAX_SIZE 100
+
+typedef enum
+{
+  INSERT,
+  SELECT,
+  DELETE,
+  UPDATE,
+  CREATE_TABLE,
+  DROP_TABLE,
+  UNDEFINED
+} SQLcommandType;
+
+typedef enum
+{
+  CMD_SYNTAX_ERROR,
+  CMD_NEGATIVE_INT,
+  CMD_STRING_TOO_LONG,
+  CMD_ENTRY_NOT_FOUND,
+  CMD_SUCCESS,
+  CMD_FAILURE,
+  CMD_OUT_OF_RANGE,
+} Commandstatus;
+
+typedef enum
+{
+  META_SUCCESS,
+  META_FAILURE,
+  META_UNRECOGNIZED
+} Metastatus;
+
+typedef enum
+{
+  MALE,
+  FEMALE,
+  OTHER,
+  NOT_DEFINED
+} gender;
+
+
+enum ExecuteResult {
+  EXECUTE_SUCCESS,
+  EXECUTE_DUPLICATE_KEY,
+  EXECUTE_TABLE_FULL,
+  EXECUTE_TABLE_NOT_FOUND,     
+  EXECUTE_TABLE_EXISTS,      
+  EXECUTE_SCHEMA_MISMATCH,    
+  EXECUTE_TYPE_ERROR,         
+  EXECUTE_COLUMN_NOT_FOUND,   
+  EXECUTE_KEY_NOT_FOUND,       
+  EXECUTE_UNKNOWN_ERROR,
+  EXECUTE_ROW_TOO_LARGE,  
+};
