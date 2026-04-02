@@ -5,6 +5,36 @@
 #include "../../headers/storage/row/row_serialize.h"
 #include <iostream>
 #include <cstring>
+#include <algorithm>
+
+// Helper: compare a FieldValue against a raw string using an operator.
+// Returns true if the row passes the WHERE filter.
+static bool matchesWhere(const Value& field,
+                          const std::string& op,
+                          const std::string& raw_value,
+                          DataType dtype) {
+    if (dtype == DataType::INT32) {
+        int32_t row_val  = std::get<int32_t>(field);
+        int32_t cmp_val;
+        try { cmp_val = std::stoi(raw_value); } catch (...) { return false; }
+        if (op == "=")  return row_val == cmp_val;
+        if (op == "<")  return row_val <  cmp_val;
+        if (op == ">")  return row_val >  cmp_val;
+        if (op == "<=") return row_val <= cmp_val;
+        if (op == ">=") return row_val >= cmp_val;
+    } else {
+        // TEXT comparison
+        std::string row_str = std::get<std::string>(field);
+        if (op == "=")  return row_str == raw_value;
+        if (op == "<")  return row_str <  raw_value;
+        if (op == ">")  return row_str >  raw_value;
+        if (op == "<=") return row_str <= raw_value;
+        if (op == ">=") return row_str >= raw_value;
+    }
+    return false;
+}
+
+
 
 ExecuteResult VM::execute(const Statement & stmt) {
   switch (stmt.type) {
@@ -109,114 +139,170 @@ ExecuteResult VM::executeInsert(const Statement& stmt) {
 }
 
 //  SELECT
+ExecuteResult VM::executeSelect(const Statement& stmt) {
+    Table* table = db_->getTable(stmt.table_name);
+    if (!table) return ExecuteResult::EXECUTE_TABLE_NOT_FOUND;
 
-ExecuteResult VM::executeSelect(const Statement & stmt) {
-  Table * table = db_ -> getTable(stmt.table_name);
-  if (!table) return ExecuteResult::EXECUTE_TABLE_NOT_FOUND;
+    const Schema& schema = table->schema;
 
-  const Schema & schema = table -> schema;
+    // Validate requested columns exist
+    for (const auto& col : stmt.select_cols)
+        if (schema.indexOf(col) == -1) return ExecuteResult::EXECUTE_COLUMN_NOT_FOUND;
 
-  for (const auto & col: stmt.select_cols)
-    if (schema.indexOf(col) == -1) return ExecuteResult::EXECUTE_COLUMN_NOT_FOUND;
-
-  // print header
-  if (stmt.select_cols.empty()) {
-    for (const auto & col: schema.columns) std::cout << col.name << "\t";
-  } else {
-    for (const auto & col: stmt.select_cols) std::cout << col << "\t";
-  }
-  std::cout << "\n" << std::string(40, '-') << "\n";
-
-  std::unique_ptr < Cursor > cursor = Cursor::table_start(table);
-
-  while (!cursor -> end_of_table) {
-    void * raw = cursor -> cursor_value();
-    Row row = deserializeRow(raw, schema);
-
-    if (stmt.select_cols.empty()) {
-      printRow(row, schema);
-    } else {
-      for (const auto & col_name: stmt.select_cols) {
-        int idx = schema.indexOf(col_name);
-        std::visit([](auto && v) {
-            std::cout << v << "\t";
-          },
-          row.fields[idx]);
-      }
-      std::cout << "\n";
+    // Validate WHERE column exists
+    int where_idx = -1;
+    if (stmt.where.active) {
+        where_idx = schema.indexOf(stmt.where.col);
+        if (where_idx == -1) return ExecuteResult::EXECUTE_COLUMN_NOT_FOUND;
     }
 
-    cursor -> cursor_advance();
-  }
+    // Validate ORDER BY column exists
+    int order_idx = -1;
+    if (stmt.order_by.active) {
+        order_idx = schema.indexOf(stmt.order_by.col);
+        if (order_idx == -1) return ExecuteResult::EXECUTE_COLUMN_NOT_FOUND;
+    }
 
-  return ExecuteResult::EXECUTE_SUCCESS;
+    //scan all rows
+    std::vector<Row> results;
+    auto cursor = Cursor::table_start(table);
+
+    while (!cursor->end_of_table) {
+        void* raw = cursor->cursor_value();
+        Row row   = deserializeRow(raw, schema);
+
+        // WHERE filter
+        if (stmt.where.active) {
+            bool pass = matchesWhere(
+                row.fields[where_idx],
+                stmt.where.op,
+                stmt.where.value,
+                schema.columns[where_idx].type);
+            if (!pass) { cursor->cursor_advance(); continue; }
+        }
+
+        results.push_back(std::move(row));
+        cursor->cursor_advance();
+    }
+
+    //  ORDER BY 
+    if (stmt.order_by.active) {
+        bool desc = stmt.order_by.descending;
+        DataType otype = schema.columns[order_idx].type;
+
+        std::sort(results.begin(), results.end(),
+            [&](const Row& a, const Row& b) {
+                if (otype == DataType::INT32) {
+                    int32_t va = std::get<int32_t>(a.fields[order_idx]);
+                    int32_t vb = std::get<int32_t>(b.fields[order_idx]);
+                    return desc ? va > vb : va < vb;
+                } else {
+                    const std::string& va = std::get<std::string>(a.fields[order_idx]);
+                    const std::string& vb = std::get<std::string>(b.fields[order_idx]);
+                    return desc ? va > vb : va < vb;
+                }
+            });
+    }
+
+    // print header
+    if (stmt.select_cols.empty()) {
+        for (const auto& col : schema.columns) std::cout << col.name << "\t";
+    } else {
+        for (const auto& col : stmt.select_cols) std::cout << col << "\t";
+    }
+    std::cout << "\n" << std::string(40, '-') << "\n";
+
+    // print rows
+    for (const auto& row : results) {
+        if (stmt.select_cols.empty()) {
+            printRow(row, schema);
+        } else {
+            for (const auto& col_name : stmt.select_cols) {
+                int idx = schema.indexOf(col_name);
+                std::visit([](auto&& v){ std::cout << v << "\t"; },
+                           row.fields[idx]);
+            }
+            std::cout << "\n";
+        }
+    }
+
+    return ExecuteResult::EXECUTE_SUCCESS;
 }
 
 //  UPDATE
 
-ExecuteResult VM::executeUpdate(const Statement & stmt) {
-  Table * table = db_ -> getTable(stmt.table_name);
-  if (!table) return ExecuteResult::EXECUTE_TABLE_NOT_FOUND;
+ExecuteResult VM::executeUpdate(const Statement& stmt) {
+    Table* table = db_->getTable(stmt.table_name);
+    if (!table) return ExecuteResult::EXECUTE_TABLE_NOT_FOUND;
 
-  const Schema & schema = table -> schema;
+    const Schema& schema = table->schema;
 
-  if (stmt.assignments.empty()) return ExecuteResult::EXECUTE_SCHEMA_MISMATCH;
+    if (stmt.assignments.empty()) return ExecuteResult::EXECUTE_SCHEMA_MISMATCH;
 
-  int pk_idx = schema.primaryKeyIndex();
-  if (pk_idx == -1) return ExecuteResult::EXECUTE_SCHEMA_MISMATCH;
+    // Validate all SET columns exist
+    for (const auto& a : stmt.assignments)
+        if (schema.indexOf(a.col) == -1) return ExecuteResult::EXECUTE_COLUMN_NOT_FOUND;
 
-  uint32_t target_id = 0;
-  bool found_pk = false;
-
-  for (const auto & a: stmt.assignments) {
-    int idx = schema.indexOf(a.col);
-    if (idx == -1) return ExecuteResult::EXECUTE_COLUMN_NOT_FOUND;
-
-    if (idx == pk_idx) {
-      try {
-        target_id = static_cast < uint32_t > (std::stoi(a.raw_value));
-        found_pk = true;
-      } catch (...) {
-        return ExecuteResult::EXECUTE_TYPE_ERROR;
-      }
+    // Validate WHERE column exists
+    int where_idx = -1;
+    if (stmt.where.active) {
+        where_idx = schema.indexOf(stmt.where.col);
+        if (where_idx == -1) return ExecuteResult::EXECUTE_COLUMN_NOT_FOUND;
     }
-  }
 
-  if (!found_pk) return ExecuteResult::EXECUTE_SCHEMA_MISMATCH;
-
-  auto cursor = table -> find(target_id);
-  if (cursor -> end_of_table) return ExecuteResult::EXECUTE_KEY_NOT_FOUND;
-
-  void * cell = cursor -> cursor_value();
-  Row row = deserializeRow(cell, schema);
-  if (row.id != target_id) return ExecuteResult::EXECUTE_KEY_NOT_FOUND;
-  
     Transaction* txn = db_->begin_txn();
-    pin_cursor_page(db_, cursor.get()); 
-  
     ExecuteResult result = ExecuteResult::EXECUTE_SUCCESS;
+    int updated = 0;
 
+    auto cursor = Cursor::table_start(table);
 
-  for (const auto & a: stmt.assignments) {
-    int idx = schema.indexOf(a.col);
-    if (idx == -1) {result= ExecuteResult::EXECUTE_COLUMN_NOT_FOUND; break;}
-    try {
-      row.fields[idx] = parseValue(a.raw_value, schema.columns[idx].type);
-    } catch (...) {
-      result= ExecuteResult::EXECUTE_TYPE_ERROR;
-      break;
-    }
-  }
+    while (!cursor->end_of_table) {
+        void* cell = cursor->cursor_value();
+        Row row    = deserializeRow(cell, schema);
 
-   if (result == ExecuteResult::EXECUTE_SUCCESS) {
+        // WHERE filter — skip rows that don't match
+        if (stmt.where.active) {
+            bool pass = matchesWhere(
+                row.fields[where_idx],
+                stmt.where.op,
+                stmt.where.value,
+                schema.columns[where_idx].type);
+            if (!pass) { cursor->cursor_advance(); continue; }
+        }
+
+        // Pin this page before first write
+        pin_cursor_page(db_, cursor.get());
+
+        // Apply SET assignments
+        for (const auto& a : stmt.assignments) {
+            int idx = schema.indexOf(a.col);
+            try {
+                row.fields[idx] = parseValue(a.raw_value, schema.columns[idx].type);
+            } catch (...) {
+                result = ExecuteResult::EXECUTE_TYPE_ERROR;
+                break;
+            }
+        }
+
+        if (result != ExecuteResult::EXECUTE_SUCCESS) break;
+
         auto bytes = serializeRow(row);
         std::memset(cell, 0, LEAF_NODE_VALUE_SIZE);
         std::memcpy(cell, bytes.data(), bytes.size());
-        db_->commit_txn(txn->id());
-    } else {
-        db_->rollback_txn(txn->id());
+        updated++;
+
+        cursor->cursor_advance();
     }
- 
+
+    if (result == ExecuteResult::EXECUTE_SUCCESS)
+        db_->commit_txn(txn->id());
+    else
+        db_->rollback_txn(txn->id());
+
+    if (result == ExecuteResult::EXECUTE_SUCCESS && updated == 0
+        && stmt.where.active)
+        return ExecuteResult::EXECUTE_KEY_NOT_FOUND;
+
     return result;
 }
 

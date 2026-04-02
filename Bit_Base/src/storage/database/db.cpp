@@ -3,6 +3,7 @@
 #include <fstream>
 #include <iostream>
 #include <cstring>
+#include <filesystem> 
 #include <sstream>
 #include <memory>
 
@@ -140,12 +141,19 @@ bool db::createTable(const std::string &name, const Schema& schema) {
 }
 
 bool db::deleteTable(const std::string &name) {
-  if (!tables.count(name))
-    return false;
+   auto it = tables.find(name);
+    if (it == tables.end())
+        return false;
 
-  tables.erase(name);
+   
+    std::string filepath = this->name + "/" + name + ".tbl";
 
-  return true;
+    tables.erase(it);   
+
+   
+    std::filesystem::remove(filepath);
+
+    return true;
 }
 
 Table *db::getTable(const std::string &name) {

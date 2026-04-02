@@ -4,7 +4,8 @@
 
 static const std::vector<std::string> KEYWORDS = {
     "INSERT", "SELECT", "DELETE", "UPDATE",  "CREATE", "DROP", "TABLE",
-    "INTO",   "FROM",   "WHERE",  "PRIMARY", "KEY",    "SET",  "VALUES"};
+    "INTO",   "FROM",   "WHERE",  "PRIMARY", "KEY",    "SET",  "VALUES",
+    "ORDER",  "BY"     };
 
 static bool isKeyword(const std::string &word) {
   std::string upper = word;

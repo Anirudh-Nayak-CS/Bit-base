@@ -24,14 +24,16 @@ static bool handleMeta(const std::string& input, db* database) {
     }
     if (input == ".help") {
         std::cout <<
-            "Meta commands:\n"
+            "\nMeta commands:\n\n"
             "  .exit                                        exit\n"
             "  .tables                                      list tables\n"
             "  .help                                        this message\n"
-            "\nSQL:\n"
+            "\n\nSQL:\n\n"
             "  INSERT INTO <table> VALUES (<v1>, <v2>, ...), (<v1>, <v2>, ...)\n"
             "  SELECT * FROM <table>\n"
-            "  UPDATE <table> SET <Primary_key>=<col_no> <col1>=<val1> [, <col2>=<val2> ...]\n"
+            "  SELECT col1,col2 FROM <table> WHERE condition\n"
+            "  SELECT col1,col2 FROM <table> ORDER BY  <col> DESC/ASC\n"
+            "  UPDATE <table>  SET col1=val1 [, col2=val2 ...]  WHERE <Primary_key>=<col_no>\n"
             "  CREATE TABLE <name> (<col1> <TYPE1> [PRIMARY KEY], <col2> <TYPE2>, ...)\n"
             "  DROP TABLE <name>\n";
         return true;
@@ -89,7 +91,7 @@ int main(int argc, char* argv[]) {
             size_t count = out.multi_insert_rows.empty() ? 1 : out.multi_insert_rows.size();
             std::cout << count << " row" << (count == 1 ? "" : "s") << " inserted.\n";
         } else if (out.type == UPDATE) {
-            std::cout << "1 row updated.\n";
+            std::cout << "Row(s) updated.\n";
         }
     }
 
