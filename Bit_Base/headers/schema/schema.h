@@ -26,7 +26,7 @@ struct Schema {
     for (size_t i = 0; i < columns.size(); ++i)
       if (columns[i].is_primary_key)
         return static_cast<int>(i);
-    // Default to first column if no explicit primary key is marked
+    // Default to -1 if no explicit primary key is marked
     return -1;
   }
 

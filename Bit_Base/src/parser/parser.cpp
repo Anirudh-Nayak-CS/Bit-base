@@ -93,49 +93,109 @@ Commandstatus Parser::parseInsert(const std::vector<Token>& t, Statement& out) {
 }
 
 // SELECT * FROM <table>
+// SELECT COL1,COL2 FROM <table> WHERE ... 
+// SELECT COL1,COL2 FROM <table> ORDER BY  <param> <DESC/ASC>
 
 Commandstatus Parser::parseSelect(const std::vector<Token>& t, Statement& out) {
     if (t.size() < 4) return CMD_SYNTAX_ERROR;
 
     out.type = SELECT;
     out.select_cols.clear();
+    out.where    = {};
+    out.order_by = {};
 
     size_t i = 1;
+
+    // Column list or *
     if (match(t, i, TokenType::IDENTIFIER, "*")) {
         i++;
     } else {
         while (i < t.size() && !match(t, i, TokenType::KEYWORD, "FROM")) {
-            if (t[i].type == TokenType::END)    return CMD_SYNTAX_ERROR;
+            if (t[i].type == TokenType::END)        return CMD_SYNTAX_ERROR;
             if (t[i].type != TokenType::IDENTIFIER) return CMD_SYNTAX_ERROR;
             out.select_cols.push_back(t[i].value);
             i++;
+            if (match(t, i, TokenType::PUNCTUATION, ",")) i++;
         }
     }
 
+    // FROM <table>
     if (!match(t, i, TokenType::KEYWORD, "FROM")) return CMD_SYNTAX_ERROR;
     i++;
-
     if (!match(t, i, TokenType::IDENTIFIER)) return CMD_SYNTAX_ERROR;
     out.table_name = t[i].value;
+    i++;
+
+    //  WHERE <col> <op> <value>
+    if (i < t.size() && match(t, i, TokenType::KEYWORD, "WHERE")) {
+        i++;
+        if (!match(t, i, TokenType::IDENTIFIER)) return CMD_SYNTAX_ERROR;
+        out.where.col = t[i].value;
+        i++;
+
+        // operator: = < > <= >=
+        if (i >= t.size()) return CMD_SYNTAX_ERROR;
+        std::string op = t[i].value;
+        if (op != "=" && op != "<" && op != ">" && op != "<=" && op != ">=")
+            return CMD_SYNTAX_ERROR;
+        out.where.op = op;
+        i++;
+
+        if (i >= t.size()) return CMD_SYNTAX_ERROR;
+        if (t[i].type != TokenType::NUMBER   &&
+            t[i].type != TokenType::STRING   &&
+            t[i].type != TokenType::IDENTIFIER)
+            return CMD_SYNTAX_ERROR;
+        out.where.value  = t[i].value;
+        out.where.active = true;
+        i++;
+    }
+
+    //  ORDER BY <col> [ASC|DESC]
+    if (i < t.size() && match(t, i, TokenType::KEYWORD, "ORDER")) {
+        i++;
+        if (!match(t, i, TokenType::KEYWORD, "BY") &&
+            !match(t, i, TokenType::IDENTIFIER, "BY"))
+            return CMD_SYNTAX_ERROR;
+        i++;
+
+        if (!match(t, i, TokenType::IDENTIFIER)) return CMD_SYNTAX_ERROR;
+        out.order_by.col    = t[i].value;
+        out.order_by.active = true;
+        i++;
+
+     
+        if (i < t.size() && t[i].type == TokenType::IDENTIFIER) {
+            std::string dir = t[i].value;
+            for (char& c : dir) c = std::toupper((unsigned char)c);
+            if (dir == "DESC") { out.order_by.descending = true;  i++; }
+            else if (dir == "ASC")  {                              i++; }
+        }
+    }
 
     return CMD_SUCCESS;
 }
 
-// UPDATE <table> SET <col1>=<val1> [, <col2>=<val2> ...]
+
+
+// UPDATE <table>  SET col1=val1 [, col2=val2 ...]  WHERE <Primary_key>=<col_no>
 
 Commandstatus Parser::parseUpdate(const std::vector<Token>& t, Statement& out) {
     if (t.size() < 6) return CMD_SYNTAX_ERROR;
 
-    if (!match(t, 1, TokenType::IDENTIFIER))      return CMD_SYNTAX_ERROR;
-    if (!match(t, 2, TokenType::KEYWORD, "SET"))  return CMD_SYNTAX_ERROR;
+    if (!match(t, 1, TokenType::IDENTIFIER))     return CMD_SYNTAX_ERROR;
+    if (!match(t, 2, TokenType::KEYWORD, "SET")) return CMD_SYNTAX_ERROR;
 
     out.type       = UPDATE;
     out.table_name = t[1].value;
     out.assignments.clear();
+    out.where = {};
 
     size_t i = 3;
-    while (i < t.size()) {
-        if (t[i].type == TokenType::END) break;
+
+    // SET col1=val1 [, col2=val2 ...]  — stop at WHERE or END
+    while (i < t.size() && t[i].type != TokenType::END) {
+        if (match(t, i, TokenType::KEYWORD, "WHERE")) break;
 
         if (!match(t, i, TokenType::IDENTIFIER)) return CMD_SYNTAX_ERROR;
         std::string col = t[i].value;
@@ -145,8 +205,8 @@ Commandstatus Parser::parseUpdate(const std::vector<Token>& t, Statement& out) {
         i++;
 
         if (i >= t.size()) return CMD_SYNTAX_ERROR;
-        if (t[i].type != TokenType::STRING &&
-            t[i].type != TokenType::NUMBER &&
+        if (t[i].type != TokenType::STRING   &&
+            t[i].type != TokenType::NUMBER   &&
             t[i].type != TokenType::IDENTIFIER)
             return CMD_SYNTAX_ERROR;
 
@@ -157,6 +217,26 @@ Commandstatus Parser::parseUpdate(const std::vector<Token>& t, Statement& out) {
     }
 
     if (out.assignments.empty()) return CMD_SYNTAX_ERROR;
+
+    // Optional WHERE <col> <op> <value>
+    if (i < t.size() && match(t, i, TokenType::KEYWORD, "WHERE")) {
+        i++;
+        if (!match(t, i, TokenType::IDENTIFIER)) return CMD_SYNTAX_ERROR;
+        out.where.col = t[i].value;
+        i++;
+
+        if (i >= t.size()) return CMD_SYNTAX_ERROR;
+        std::string op = t[i].value;
+        if (op != "=" && op != "<" && op != ">" && op != "<=" && op != ">=")
+            return CMD_SYNTAX_ERROR;
+        out.where.op = op;
+        i++;
+
+        if (i >= t.size()) return CMD_SYNTAX_ERROR;
+        out.where.value  = t[i].value;
+        out.where.active = true;
+    }
+
     return CMD_SUCCESS;
 }
 

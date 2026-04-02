@@ -58,7 +58,7 @@ void* Pager::get_page(uint32_t page_num) {
 }
 
 
-void Pager::flush(uint32_t page_num) {
+void Pager::flush_page(uint32_t page_num) {
         if (pages[page_num] == nullptr) {
         std::cerr << "Tried to flush null page\n";
         std::exit(EXIT_FAILURE);
@@ -83,8 +83,16 @@ void Pager::flush(uint32_t page_num) {
         std::exit(EXIT_FAILURE);
     }
       file_length = std::max(file_length, (page_num + 1) * PAGE_SIZE);
+       dirty_pages_.erase(page_num); 
 }
 
+// flush_all_dirty: commit every dirty page to disk and clear the set.
+void Pager::flush_all_dirty() {
+    std::unordered_set<uint32_t> to_flush = std::move(dirty_pages_);
+    dirty_pages_.clear();
+    for (uint32_t pnum : to_flush)
+        flush_page(pnum);
+}
 
 Pager* Pager::pager_open(const char* filename)
 {
@@ -121,7 +129,7 @@ void Pager::pager_close() {
     for (uint32_t i = 0; i < num_pages; i++) {
         if (pages[i] == nullptr) continue;
 
-        flush(i);
+        flush_page(i);
         std::free(pages[i]);
         pages[i] = nullptr;
     }
@@ -134,6 +142,16 @@ void Pager::pager_close() {
   
 }
 
+
+void Pager::mark_dirty(uint32_t page_num) {
+    dirty_pages_.insert(page_num);
+}
+ 
+bool Pager::is_dirty(uint32_t page_num) const {
+    return dirty_pages_.count(page_num) > 0;
+}
+
 Pager::~Pager() {
     pager_close();
 }
+

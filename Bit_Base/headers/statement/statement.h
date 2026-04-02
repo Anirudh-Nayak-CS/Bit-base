@@ -11,9 +11,24 @@ struct Assignment {
   std::string raw_value;
 };
 
+struct WhereClause {
+    std::string col;        // column name
+    std::string op;         // "=", "<", ">", "<=", ">="
+    std::string value;      // raw string value to compare against
+    bool active = false;    // false means no WHERE clause present
+};
+
+struct OrderBy {
+    std::string col;
+    bool descending = false;   
+    bool active     = false;
+};
+
 struct Statement {
 
   SQLcommandType type = UNDEFINED;
+  WhereClause where;
+  OrderBy     order_by;
 
   // table targeted by any command
   std::string table_name;
