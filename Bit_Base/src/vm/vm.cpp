@@ -23,10 +23,17 @@ ExecuteResult VM::execute(const Statement & stmt) {
   }
 }
 
+static void pin_cursor_page(db* database, Cursor* cursor) {
+    Pager* pager = cursor->table->pager;
+    uint32_t pnum = cursor->page_num;
+    void* page = pager->get_page(pnum);
+    database->pin_page(pnum, page, pager);
+}
+
 //  INSERT
 
 // helper: insert a single row of raw string values into the table
-static ExecuteResult insertOneRow(Table * table,
+static ExecuteResult insertOneRow(db* database,Table * table,
   const Schema & schema,
     const std::vector < std::string > & values) {
   if (values.size() != schema.columns.size())
@@ -60,6 +67,12 @@ static ExecuteResult insertOneRow(Table * table,
   if (bytes.size() > LEAF_NODE_VALUE_SIZE)
     return ExecuteResult::EXECUTE_ROW_TOO_LARGE;
 
+    // Find the insertion position first (read-only)
+  auto cursor = table->find(row.id);
+ 
+    
+  pin_cursor_page(database, cursor.get());  
+
   bool ok = table -> insert(row.id, bytes.data(), static_cast < uint32_t > (bytes.size()));
   if (!ok) return ExecuteResult::EXECUTE_DUPLICATE_KEY;
   return ExecuteResult::EXECUTE_SUCCESS;
@@ -68,23 +81,31 @@ static ExecuteResult insertOneRow(Table * table,
 
 //INSERT 
 
-ExecuteResult VM::executeInsert(const Statement & stmt) {
-  Table * table = db_ -> getTable(stmt.table_name);
-  if (!table) return ExecuteResult::EXECUTE_TABLE_NOT_FOUND;
+ExecuteResult VM::executeInsert(const Statement& stmt) {
+    Table* table = db_->getTable(stmt.table_name);
+    if (!table) return ExecuteResult::EXECUTE_TABLE_NOT_FOUND;
 
-  const Schema & schema = table -> schema;
+    const Schema& schema = table->schema;
 
-  // multi-row path (parser always populates multi_insert_rows)
-  if (!stmt.multi_insert_rows.empty()) {
-    for (const auto & row_vals: stmt.multi_insert_rows) {
-      ExecuteResult r = insertOneRow(table, schema, row_vals);
-      if (r != ExecuteResult::EXECUTE_SUCCESS) return r;
+    Transaction* txn = db_->begin_txn();
+    ExecuteResult result = ExecuteResult::EXECUTE_SUCCESS;
+
+    if (!stmt.multi_insert_rows.empty()) {
+        for (const auto& row_vals : stmt.multi_insert_rows) {
+            result = insertOneRow(db_, table, schema, row_vals);
+            if (result != ExecuteResult::EXECUTE_SUCCESS) break;
+        }
+    } else {
+        result = insertOneRow(db_, table, schema, stmt.insert_values);
     }
-    return ExecuteResult::EXECUTE_SUCCESS;
-  }
 
-  // fallback  single-row path via insert_values
-  return insertOneRow(table, schema, stmt.insert_values);
+    // single commit/rollback path for both single and multi-row
+    if (result == ExecuteResult::EXECUTE_SUCCESS)
+        db_->commit_txn(txn->id());
+    else
+        db_->rollback_txn(txn->id());
+
+    return result;
 }
 
 //  SELECT
@@ -169,22 +190,34 @@ ExecuteResult VM::executeUpdate(const Statement & stmt) {
   void * cell = cursor -> cursor_value();
   Row row = deserializeRow(cell, schema);
   if (row.id != target_id) return ExecuteResult::EXECUTE_KEY_NOT_FOUND;
+  
+    Transaction* txn = db_->begin_txn();
+    pin_cursor_page(db_, cursor.get()); 
+  
+    ExecuteResult result = ExecuteResult::EXECUTE_SUCCESS;
+
 
   for (const auto & a: stmt.assignments) {
     int idx = schema.indexOf(a.col);
-    if (idx == -1) return ExecuteResult::EXECUTE_COLUMN_NOT_FOUND;
+    if (idx == -1) {result= ExecuteResult::EXECUTE_COLUMN_NOT_FOUND; break;}
     try {
       row.fields[idx] = parseValue(a.raw_value, schema.columns[idx].type);
     } catch (...) {
-      return ExecuteResult::EXECUTE_TYPE_ERROR;
+      result= ExecuteResult::EXECUTE_TYPE_ERROR;
+      break;
     }
   }
 
-  auto bytes = serializeRow(row);
-  std::memset(cell, 0, LEAF_NODE_VALUE_SIZE);
-  std::memcpy(cell, bytes.data(), bytes.size());
-
-  return ExecuteResult::EXECUTE_SUCCESS;
+   if (result == ExecuteResult::EXECUTE_SUCCESS) {
+        auto bytes = serializeRow(row);
+        std::memset(cell, 0, LEAF_NODE_VALUE_SIZE);
+        std::memcpy(cell, bytes.data(), bytes.size());
+        db_->commit_txn(txn->id());
+    } else {
+        db_->rollback_txn(txn->id());
+    }
+ 
+    return result;
 }
 
 //  CREATE TABLE
