@@ -80,13 +80,19 @@ std::vector<Token> tokenize(const std::string &input) {
       continue;
     }
 
-    // operators and delimiters: =, <, >, *, etc.
+    // operators and delimiters: =, <, <=, >, >=, *, etc.
     if (input[i] == '=' || input[i] == '<' || input[i] == '>' ||
         input[i] == '*' || input[i] == '+' || input[i] == '-' ||
         input[i] == '/' || input[i] == ',' || input[i] == '(' ||
         input[i] == ')') {
       std::string val;
       val += input[i];
+      // Combine two-character operators <= and >=
+      if ((input[i] == '<' || input[i] == '>') &&
+          i + 1 < n && input[i + 1] == '=') {
+        val += '=';
+        i++;
+      }
       tokens.push_back({TokenType::IDENTIFIER, val}); // operators as IDENTIFIER
       i++;
       continue;

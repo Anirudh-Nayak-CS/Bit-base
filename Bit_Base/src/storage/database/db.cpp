@@ -14,11 +14,12 @@ db *db::db_open(const char *filename) {
   database->wal_ = std::make_unique<WalManager>(
         std::string(filename) + ".wal");
   database->loadSchema();
-    // Replay any committed-but-not-flushed txns from a prior crash
-  for (auto& [name, table] : database->tables) {
-        Pager* pager = table->pager;
-        database->wal_->recover(pager);
-    }
+  // Replay any committed-but-not-flushed txns from a prior crash.
+  // Each call to recover() truncates the WAL after processing, so subsequent
+  // calls on other tables simply read an empty WAL and return immediately.
+  for (auto& [name, table] : database->tables)
+      database->wal_->recover(table->pager);
+
   return database;
 }
 
@@ -81,15 +82,11 @@ bool db::commit_txn(uint64_t txn_id) {
     }
  
     // Write COMMIT record and fsync the WAL *before* touching data pages.
-  
-    wal_->log_commit(txn_id);   // log_commit calls flush() internally
+    wal_->log_commit(txn_id);   // log_commit calls flush() and truncate() internally
  
     // Flush every dirty page to the .tbl file now that the commit is durable
     for (auto& [tname, table] : tables)
         table->pager->flush_all_dirty();
- 
-    //  Truncate the WAL – the data file is now consistent
-    wal_->truncate();
  
     current_txn_->mark_committed();
     current_txn_.reset();

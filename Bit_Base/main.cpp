@@ -33,6 +33,8 @@ static bool handleMeta(const std::string& input, db* database) {
             "  SELECT * FROM <table>\n"
             "  SELECT col1,col2 FROM <table> WHERE condition\n"
             "  SELECT col1,col2 FROM <table> ORDER BY  <col> DESC/ASC\n"
+            "  DELETE FROM <table>                              delete all rows\n"
+            "  DELETE FROM <table> WHERE <col> <op> <val>       conditional delete\n"
             "  UPDATE <table>  SET col1=val1 [, col2=val2 ...]  WHERE <Primary_key>=<col_no>\n"
             "  CREATE TABLE <name> (<col1> <TYPE1> [PRIMARY KEY], <col2> <TYPE2>, ...)\n"
             "  DROP TABLE <name>\n";

@@ -14,6 +14,7 @@ private:
   Commandstatus parseInsert(const std::vector<Token> &t, Statement &out);
   Commandstatus parseSelect(const std::vector<Token> &t, Statement &out);
   Commandstatus parseUpdate(const std::vector<Token> &t, Statement &out);
+  Commandstatus parseDelete(const std::vector<Token>& tokens, Statement& out);
   Commandstatus parseCreateTable(const std::vector<Token> &t, Statement &out);
   Commandstatus parseDropTable(const std::vector<Token> &t, Statement &out);
 

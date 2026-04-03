@@ -52,6 +52,27 @@ bool Table::insert(uint32_t key, const void* data, uint32_t size) {
     return true;
 }
 
+bool Table::remove(uint32_t key) {
+    auto cursor = find(key);
+    void* node = pager->get_page(cursor->page_num);
+    uint32_t num_cells = *leafNodeNumCells(node);
+
+    if (cursor->cell_num >= num_cells ||
+        *leafNodeKey(node, cursor->cell_num) != key)
+        return false;
+
+    B_Plus_Tree::leaf_node_delete_cell(node, cursor->cell_num);
+    pager->mark_dirty(cursor->page_num);
+    return true;
+}
+
+bool Table::removeAt(uint32_t page_num, uint32_t cell_num) {
+    void* node = pager->get_page(page_num);
+    bool ok = B_Plus_Tree::leaf_node_delete_cell(node, cell_num);
+    if (ok) pager->mark_dirty(page_num);
+    return ok;
+}
+
 Table::~Table() {
      if (pager) {
         delete pager;

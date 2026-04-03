@@ -22,6 +22,8 @@ public:
     
     // insert serializes the Row internally before calling leaf_node_insert
     bool insert(uint32_t key, const void* data, uint32_t size);
+    bool remove(uint32_t key);
+    bool removeAt(uint32_t page_num, uint32_t cell_num);
     std::unique_ptr<Cursor> find(uint32_t key);
  
     ~Table();

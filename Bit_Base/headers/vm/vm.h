@@ -19,6 +19,7 @@ private:
   ExecuteResult executeInsert(const Statement &stmt);
   ExecuteResult executeSelect(const Statement &stmt);
   ExecuteResult executeUpdate(const Statement &stmt);
+  ExecuteResult executeDelete(const Statement& stmt);
   ExecuteResult executeCreateTable(const Statement &stmt);
   ExecuteResult executeDropTable(const Statement &stmt);
 

@@ -1,6 +1,7 @@
 #include "../../headers/vm/vm.h"
 #include "../../headers/constants/constant.h"
 #include "../../headers/storage/node/leaf_node.h"
+#include "../../headers/storage/node/node_utils.h"
 #include "../../headers/schema/schema.h"
 #include "../../headers/storage/row/row_serialize.h"
 #include <iostream>
@@ -44,6 +45,7 @@ ExecuteResult VM::execute(const Statement & stmt) {
     return executeSelect(stmt);
   case UPDATE:
     return executeUpdate(stmt);
+  case DELETE_STMT: return executeDelete(stmt);  
   case CREATE_TABLE:
     return executeCreateTable(stmt);
   case DROP_TABLE:
@@ -303,6 +305,113 @@ ExecuteResult VM::executeUpdate(const Statement& stmt) {
         && stmt.where.active)
         return ExecuteResult::EXECUTE_KEY_NOT_FOUND;
 
+    return result;
+}
+
+ExecuteResult VM::executeDelete(const Statement& stmt) {
+    Table* table = db_->getTable(stmt.table_name);
+    if (!table) return ExecuteResult::EXECUTE_TABLE_NOT_FOUND;
+
+    const Schema& schema = table->schema;
+
+    int where_idx = -1;
+    if (stmt.where.active) {
+        where_idx = schema.indexOf(stmt.where.col);
+        if (where_idx == -1) return ExecuteResult::EXECUTE_COLUMN_NOT_FOUND;
+    }
+
+    Transaction* txn = db_->begin_txn();
+    ExecuteResult result = ExecuteResult::EXECUTE_SUCCESS;
+    int deleted = 0;
+
+    // Fast path: WHERE <pk> = <id>  →  table->remove() point-delete
+    int pk_idx = schema.primaryKeyIndex();
+    if (stmt.where.active &&
+        where_idx == pk_idx &&
+        stmt.where.op == "=" &&
+        schema.columns[pk_idx].type == DataType::INT32)
+    {
+        uint32_t target_id;
+        try { target_id = static_cast<uint32_t>(std::stoi(stmt.where.value)); }
+        catch (...) {
+            db_->rollback_txn(txn->id());
+            return ExecuteResult::EXECUTE_TYPE_ERROR;
+        }
+
+        auto cursor = table->find(target_id);
+        pin_cursor_page(db_, cursor.get());
+
+        bool found = table->remove(target_id);
+        db_->commit_txn(txn->id());
+
+        if (!found) return ExecuteResult::EXECUTE_KEY_NOT_FOUND;
+        std::cout << "1 row deleted.\n";
+        return ExecuteResult::EXECUTE_SUCCESS;
+    }
+
+    // General path: full scan
+    auto cursor = Cursor::table_start(table);
+
+    while (!cursor->end_of_table) {
+        void* raw = cursor->cursor_value();
+        Row   row = deserializeRow(raw, schema);
+
+        if (stmt.where.active) {
+            bool pass = matchesWhere(
+                row.fields[where_idx],
+                stmt.where.op,
+                stmt.where.value,
+                schema.columns[where_idx].type);
+            if (!pass) { cursor->cursor_advance(); continue; }
+        }
+
+        pin_cursor_page(db_, cursor.get());
+
+        uint32_t cur_page = cursor->page_num;
+        uint32_t cur_cell = cursor->cell_num;
+
+        table->removeAt(cur_page, cur_cell);
+        deleted++;
+
+        // after deletion the cell that
+        // was at cur_cell+1 has slid down to cur_cell, so we only move
+        // to the next leaf if we've gone past the end of this one.
+        void* node = table->pager->get_page(cur_page);
+        uint32_t new_ncells = *leafNodeNumCells(node);
+        if (cur_cell >= new_ncells) {
+            uint32_t next_page = *leaf_node_next_leaf(node);
+            if (next_page == INVALID_PAGE_NUM)
+                cursor->end_of_table = true;
+            else {
+                cursor->page_num = next_page;
+                cursor->cell_num = 0;
+            }
+        }
+    }
+
+    // If we deleted everything and the table is now empty, reset the root page
+    // to a fresh empty leaf node so subsequent inserts start from a clean state.
+    if (result == ExecuteResult::EXECUTE_SUCCESS && deleted > 0) {
+        uint32_t remaining = 0;
+        auto chk = Cursor::table_start(table);
+        while (!chk->end_of_table) { remaining++; chk->cursor_advance(); }
+        if (remaining == 0) {
+            void* root = table->pager->get_page(table->root_page_num);
+            initializeLeafNode(root);
+            set_node_root(root, true);
+            table->pager->mark_dirty(table->root_page_num);
+        }
+    }
+
+    if (result == ExecuteResult::EXECUTE_SUCCESS)
+        db_->commit_txn(txn->id());
+    else
+        db_->rollback_txn(txn->id());
+
+    if (result == ExecuteResult::EXECUTE_SUCCESS && deleted == 0 && stmt.where.active)
+        return ExecuteResult::EXECUTE_KEY_NOT_FOUND;
+
+    std::cout << deleted << " row" << (deleted == 1 ? "" : "s") << " deleted.\n";
     return result;
 }
 
