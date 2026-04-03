@@ -5,7 +5,7 @@ typedef enum
 {
   INSERT,
   SELECT,
-  DELETE,
+  DELETE_STMT,
   UPDATE,
   CREATE_TABLE,
   DROP_TABLE,

@@ -32,6 +32,7 @@ Commandstatus Parser::parse(const std::vector<Token>& tokens, Statement& out) {
     else if (ieq(first, "UPDATE")) return parseUpdate(tokens, out);
     else if (ieq(first, "CREATE")) return parseCreateTable(tokens, out);
     else if (ieq(first, "DROP"))   return parseDropTable(tokens, out);
+    else if (ieq(first, "DELETE")) return parseDelete(tokens, out); 
 
     return CMD_SYNTAX_ERROR;
 }
@@ -306,5 +307,44 @@ Commandstatus Parser::parseDropTable(const std::vector<Token>& t, Statement& out
 
     out.type       = DROP_TABLE;
     out.table_name = t[2].value;
+    return CMD_SUCCESS;
+}
+
+// DELETE FROM <table>
+// DELETE FROM <table> WHERE <col> <op> <val>
+Commandstatus Parser::parseDelete(const std::vector<Token>& t, Statement& out) {
+    if (t.size() < 3) return CMD_SYNTAX_ERROR;
+
+    if (!match(t, 1, TokenType::KEYWORD, "FROM"))  return CMD_SYNTAX_ERROR;
+    if (!match(t, 2, TokenType::IDENTIFIER))        return CMD_SYNTAX_ERROR;
+
+    out.type       = DELETE_STMT;
+    out.table_name = t[2].value;
+    out.where      = {};
+
+    size_t i = 3;
+
+    if (i < t.size() && match(t, i, TokenType::KEYWORD, "WHERE")) {
+        i++;
+        if (!match(t, i, TokenType::IDENTIFIER)) return CMD_SYNTAX_ERROR;
+        out.where.col = t[i].value;
+        i++;
+
+        if (i >= t.size()) return CMD_SYNTAX_ERROR;
+        std::string op = t[i].value;
+        if (op != "=" && op != "<" && op != ">" && op != "<=" && op != ">=")
+            return CMD_SYNTAX_ERROR;
+        out.where.op = op;
+        i++;
+
+        if (i >= t.size()) return CMD_SYNTAX_ERROR;
+        if (t[i].type != TokenType::NUMBER   &&
+            t[i].type != TokenType::STRING   &&
+            t[i].type != TokenType::IDENTIFIER)
+            return CMD_SYNTAX_ERROR;
+        out.where.value  = t[i].value;
+        out.where.active = true;
+    }
+
     return CMD_SUCCESS;
 }

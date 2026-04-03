@@ -80,6 +80,9 @@ void WalManager::log_commit(uint64_t txn_id) {
     r.transaction_id = txn_id;
     write_record(r);
     flush();   // WAL record MUST hit disk before page data does
+    // Truncate immediately after commit: the pager will flush committed pages
+    // to disk on db_close, so the WAL is no longer needed for recovery.
+    truncate();
 }
 
 void WalManager::log_rollback(uint64_t txn_id) {
@@ -129,37 +132,36 @@ std::vector<WalRecord> WalManager::read_all() {
     return records;
 }
 
-// ── recover ──────────────────────────────────────────────────────────────────
-// Called once at db_open.
-//
-// Strategy (UNDO-only WAL):
-//   1. Scan all records to find which txn_ids have a COMMIT record.
-//   2. For every WRITE record whose txn_id has NO COMMIT, restore the
-//      before-image into the pager cache (undo the partial write).
-//   3. Those restored pages are then flushed by the Pager destructor /
-//      flush_all_dirty at the end of recovery.
-//   4. Truncate the WAL so it starts fresh.
-//
-// Committed txns whose pages were already flushed to disk are fine – we don't
-// need to redo anything because the Pager writes pages to disk at close time.
+//  recover 
+// Called once per table at db_open.
+
+// This handles the multi-table case correctly: all tables share one WAL file,
+// so we must not truncate it after processing the first table.
 
 void WalManager::recover(Pager* pager) {
-    std::vector<WalRecord> records = read_all();
-    if (records.empty()) return;
+    // Read records from disk only once; reuse the cache for subsequent calls.
+    if (recover_cache_.empty()) {
+        recover_cache_ = read_all();
+        if (recover_cache_.empty()) return;   // WAL is empty — nothing to do
 
-    // Collect committed txn ids
-    std::unordered_set<uint64_t> committed;
-    for (const auto& r : records)
-        if (r.type == WalRecordType::COMMIT)
-            committed.insert(r.transaction_id);
+        // Build the committed-txn set once (shared across all pager calls).
+        for (const auto& r : recover_cache_)
+            if (r.type == WalRecordType::COMMIT)
+                recover_committed_.insert(r.transaction_id);
 
-    // Undo any WRITE whose txn was never committed
+        // Truncate now: we have the records in memory and the file is no
+        // longer needed. Subsequent recover() calls use recover_cache_.
+        truncate();
+    }
+
+    if (recover_cache_.empty()) return;
+
+    // Apply undo for this pager's pages.
     bool did_undo = false;
-    for (const auto& r : records) {
+    for (const auto& r : recover_cache_) {
         if (r.type != WalRecordType::WRITE) continue;
-        if (committed.count(r.transaction_id))      continue;   // committed – leave it
+        if (recover_committed_.count(r.transaction_id)) continue;  // committed
 
-        // Restore before-image into the pager cache
         void* page = pager->get_page(r.page_num);
         std::memcpy(page, r.before_image.data(),
                     std::min(r.before_image.size(), (size_t)PAGE_SIZE));
@@ -172,9 +174,6 @@ void WalManager::recover(Pager* pager) {
 
     if (did_undo)
         pager->flush_all_dirty();
-
-    // Truncate the WAL – everything is now consistent
-    truncate();
 }
 
 

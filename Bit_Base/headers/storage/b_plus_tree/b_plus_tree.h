@@ -22,6 +22,8 @@ public:
   static void update_internal_node_key(void* node, uint32_t old_key,
                                        uint32_t new_key);
 
+  static bool leaf_node_delete_cell(void* node, uint32_t cell_num);                                     
+
   static void internal_node_insert(Table* table, uint32_t parent_page_num,
                                    uint32_t child_page_num);
 

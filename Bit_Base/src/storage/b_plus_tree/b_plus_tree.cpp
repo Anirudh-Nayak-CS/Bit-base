@@ -209,6 +209,20 @@ void B_Plus_Tree::print_tree(Pager *pager, uint32_t page_num,
   }
 }
 
+bool B_Plus_Tree::leaf_node_delete_cell(void* node, uint32_t cell_num) {
+    uint32_t num_cells = *leafNodeNumCells(node);
+    if (cell_num >= num_cells) return false;
+
+    for (uint32_t i = cell_num; i < num_cells - 1; ++i)
+        std::memcpy(leafNodeCell(node, i),
+                    leafNodeCell(node, i + 1),
+                    LEAF_NODE_CELL_SIZE);
+
+    std::memset(leafNodeCell(node, num_cells - 1), 0, LEAF_NODE_CELL_SIZE);
+    *(leafNodeNumCells(node)) = num_cells - 1;
+    return true;
+}
+
 uint32_t B_Plus_Tree::internal_node_find_child(void *node, uint32_t key) {
   uint32_t num_keys = *internal_node_num_keys(node);
 

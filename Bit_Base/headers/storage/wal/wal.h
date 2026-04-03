@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <fstream>
+#include <unordered_set>
 
 enum class WalRecordType : uint8_t {
     BEGIN    = 1,   // transaction started
@@ -43,4 +44,8 @@ private:
     std::string  path_;
     void write_record(const WalRecord& r);
     std::vector<WalRecord> read_all();
+
+    // Cache used by recover() so multi-table recovery reads the WAL only once.
+    std::vector<WalRecord>       recover_cache_;
+    std::unordered_set<uint64_t> recover_committed_;
 };
