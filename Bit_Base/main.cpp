@@ -6,6 +6,7 @@
 #include "headers/storage/database/db.h"
 #include "headers/statement/statement.h"
 #include "headers/constants/constant.h"
+#include <chrono>
 
 static void printPrompt() {
     std::cout << "bitbase> ";
@@ -62,7 +63,7 @@ int main(int argc, char* argv[]) {
         line = line.substr(s);
         size_t e = line.find_last_not_of(" \t\r\n");
         if (e != std::string::npos) line = line.substr(0, e + 1);
-
+        
         if (line.empty()) continue;
 
         // meta commands
@@ -85,7 +86,13 @@ int main(int argc, char* argv[]) {
 
         // execute
         VM vm(database);
+       
+        auto start_time = std::chrono::high_resolution_clock::now();
+        
         ExecuteResult exec_result = vm.execute(out);
+    
+        auto end_time = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double, std::milli> elapsed = end_time - start_time;
 
         if (exec_result != EXECUTE_SUCCESS) {
             std::cout << VM::resultMessage(exec_result) << "\n";
@@ -95,6 +102,7 @@ int main(int argc, char* argv[]) {
         } else if (out.type == UPDATE) {
             std::cout << "Row(s) updated.\n";
         }
+        std::cout << "(" << elapsed.count() << " ms)\n";
     }
 
     database->db_close();
