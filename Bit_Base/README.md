@@ -11,6 +11,7 @@ The goal of BitBase is not to compete with production databases, but to demonstr
 - Virtual machine layer that executes parsed statements
 - Table storage backed by fixed-size pages
 - B+ tree structure for primary-key storage
+- Indexed primary-key paths for `SELECT`, `UPDATE`, and `DELETE`
 - Persistent schema and table files
 - Write-ahead log for recovery-oriented storage behavior
 - Basic transaction support with commit and rollback paths
@@ -147,15 +148,15 @@ g++ -std=c++17 benchmark.cpp \
 Run the benchmark:
 
 ```bash
-./benchmark 5 10 50 100 250 500
+./benchmark 5 10 50 100 250 500 1000
 ```
 
 The benchmark measures:
 
 - Sequential inserts
 - Full-table scans
-- `WHERE id = ...` filtered selects
-- `WHERE id = ...` updates
+- `WHERE id = ...` indexed point selects
+- `WHERE id = ...` indexed point updates
 - Primary-key deletes
 - Reverse-order inserts to stress B+ tree splits
 
@@ -167,19 +168,19 @@ Results are written to `benchmark_results.csv`, and `plot_benchmark.py` generate
 
 ![BitBase Benchmark Total Execution Time](bitbase_benchmark_total_time.png)
 
-This graph compares total runtime for each operation as the number of rows increases. Inserts, updates, deletes, and reverse-order inserts are more expensive than simple reads because they perform storage mutations and transaction/WAL work. Full scans increase with table size because each benchmark run reads through the table contents.
+This graph compares total runtime for each operation as the number of rows increases. Inserts, updates, deletes, and reverse-order inserts are more expensive than simple reads because they perform storage mutations and transaction/WAL work. Full scans increase sharply with table size because the benchmark runs `N` full scans over an `N`-row table.
 
 ### Per-Operation Latency Scaling
 
 ![BitBase Per-Operation Latency Scaling](bitbase_benchmark_per_op_scaling.png)
 
-This graph shows average time per operation. Insert and update latency stay in a relatively similar range across the tested sizes, while scan-based operations become more expensive as the table grows. Reverse-order inserts are included because they exercise B+ tree split behavior more directly than simple sequential inserts.
+This graph shows average time per benchmark operation. Indexed `SELECT WHERE id = ...` remains the fastest path because it performs a B+ tree lookup and reads one row without mutating storage. Indexed updates and deletes also avoid full scans, but they still pay for row serialization, page mutation, transaction bookkeeping, and dirty-page handling. Full scans become more expensive as the table grows.
 
 ### Throughput Scaling
 
 ![BitBase Benchmark Throughput Scaling](bitbase_benchmark_throughput.png)
 
-Throughput is calculated from per-operation latency. Faster read operations achieve higher operations per second, while write-heavy operations have lower throughput because each mutation passes through serialization, page updates, transaction handling, and disk flushing behavior.
+Throughput is calculated from per-operation latency. Indexed point reads achieve the highest throughput, while write-heavy operations have lower throughput because each mutation passes through serialization, page updates, transaction handling, and disk flushing behavior.
 
 ## Result Interpretation
 
@@ -187,13 +188,15 @@ The results are consistent with the current implementation:
 
 - Sequential inserts scale predictably for the tested input sizes.
 - Full scans become slower as `N` increases, which is expected for table traversal.
-- `SELECT WHERE id = ...` currently scans rows and applies a filter, so it should be interpreted as filtered-select performance rather than true indexed lookup performance.
-- `UPDATE WHERE id = ...` also scans rows before applying updates.
-- `DELETE WHERE id = ...` uses the primary-key delete path and is closest to a true point operation in the current implementation.
+- `SELECT WHERE id = ...` uses the primary-key B+ tree path and performs a true indexed point lookup.
+- `UPDATE WHERE id = ...` uses the primary-key B+ tree path when the update does not modify the primary key itself.
+- `DELETE WHERE id = ...` uses the primary-key delete path.
 - Reverse-order inserts help demonstrate B+ tree split behavior under non-sequential insertion order.
+
+In the latest local benchmark run, `SELECT WHERE id = ...` at `N = 1000` completed in about `17.4 us` per point lookup, while `SELECT *` full scans took about `4.5 ms` per query. Writes are slower than indexed reads because they mutate pages and pass through the transaction/WAL path.
 
 ## What This Project Demonstrates
 
 BitBase demonstrates understanding of database internals beyond simply using an existing DBMS. The project covers parsing, execution planning at a small scale, row serialization, page-oriented storage, B+ tree organization, persistence, logging, and benchmark-driven evaluation.
 
-Future improvements could include indexed `SELECT` and `UPDATE` paths for primary-key filters, stronger SQL grammar coverage, better query planning, more complete transaction isolation, and automated tests for storage recovery behavior.
+Future improvements could include secondary indexes for non-primary-key filters, range scans over the B+ tree, stronger SQL grammar coverage, better query planning, more complete transaction isolation, and automated tests for storage recovery behavior.

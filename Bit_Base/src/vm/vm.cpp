@@ -7,6 +7,7 @@
 #include <iostream>
 #include <cstring>
 #include <algorithm>
+#include <limits>
 
 // Helper: compare a FieldValue against a raw string using an operator.
 // Returns true if the row passes the WHERE filter.
@@ -165,26 +166,57 @@ ExecuteResult VM::executeSelect(const Statement& stmt) {
         if (order_idx == -1) return ExecuteResult::EXECUTE_COLUMN_NOT_FOUND;
     }
 
-    //scan all rows
     std::vector<Row> results;
-    auto cursor = Cursor::table_start(table);
+    bool used_index_lookup = false;
 
-    while (!cursor->end_of_table) {
-        void* raw = cursor->cursor_value();
-        Row row   = deserializeRow(raw, schema);
+    int pk_idx = schema.primaryKeyIndex();
+    if (stmt.where.active &&
+        stmt.where.op == "=" &&
+        pk_idx == where_idx &&
+        schema.columns[pk_idx].type == DataType::INT32) {
+        used_index_lookup = true;
 
-        // WHERE filter
-        if (stmt.where.active) {
-            bool pass = matchesWhere(
-                row.fields[where_idx],
-                stmt.where.op,
-                stmt.where.value,
-                schema.columns[where_idx].type);
-            if (!pass) { cursor->cursor_advance(); continue; }
+        try {
+            long long parsed_key = std::stoll(stmt.where.value);
+            if (parsed_key >= 0 &&
+                parsed_key <= std::numeric_limits<uint32_t>::max()) {
+                uint32_t key = static_cast<uint32_t>(parsed_key);
+                auto cursor = table->find(key);
+                void* node = table->pager->get_page(cursor->page_num);
+                uint32_t num_cells = *leafNodeNumCells(node);
+
+                if (cursor->cell_num < num_cells &&
+                    *leafNodeKey(node, cursor->cell_num) == key) {
+                    results.push_back(deserializeRow(cursor->cursor_value(),
+                                                     schema));
+                }
+            }
+        } catch (...) {
+            // Match scan behavior for malformed WHERE values: return no rows.
         }
+    }
 
-        results.push_back(std::move(row));
-        cursor->cursor_advance();
+    // scan all rows when the WHERE clause cannot use the primary-key index
+    if (!used_index_lookup) {
+        auto cursor = Cursor::table_start(table);
+
+        while (!cursor->end_of_table) {
+            void* raw = cursor->cursor_value();
+            Row row   = deserializeRow(raw, schema);
+
+            // WHERE filter
+            if (stmt.where.active) {
+                bool pass = matchesWhere(
+                    row.fields[where_idx],
+                    stmt.where.op,
+                    stmt.where.value,
+                    schema.columns[where_idx].type);
+                if (!pass) { cursor->cursor_advance(); continue; }
+            }
+
+            results.push_back(std::move(row));
+            cursor->cursor_advance();
+        }
     }
 
     //  ORDER BY 
@@ -255,6 +287,66 @@ ExecuteResult VM::executeUpdate(const Statement& stmt) {
     Transaction* txn = db_->begin_txn();
     ExecuteResult result = ExecuteResult::EXECUTE_SUCCESS;
     int updated = 0;
+
+    int pk_idx = schema.primaryKeyIndex();
+    bool updates_primary_key = false;
+    for (const auto& a : stmt.assignments) {
+        if (schema.indexOf(a.col) == pk_idx) {
+            updates_primary_key = true;
+            break;
+        }
+    }
+
+    if (stmt.where.active &&
+        stmt.where.op == "=" &&
+        pk_idx == where_idx &&
+        schema.columns[pk_idx].type == DataType::INT32 &&
+        !updates_primary_key) {
+        try {
+            long long parsed_key = std::stoll(stmt.where.value);
+            if (parsed_key < 0 ||
+                parsed_key > std::numeric_limits<uint32_t>::max()) {
+                db_->rollback_txn(txn->id());
+                return ExecuteResult::EXECUTE_KEY_NOT_FOUND;
+            }
+
+            uint32_t key = static_cast<uint32_t>(parsed_key);
+            auto cursor = table->find(key);
+            void* node = table->pager->get_page(cursor->page_num);
+            uint32_t num_cells = *leafNodeNumCells(node);
+
+            if (cursor->cell_num >= num_cells ||
+                *leafNodeKey(node, cursor->cell_num) != key) {
+                db_->rollback_txn(txn->id());
+                return ExecuteResult::EXECUTE_KEY_NOT_FOUND;
+            }
+
+            void* cell = cursor->cursor_value();
+            Row row = deserializeRow(cell, schema);
+
+            pin_cursor_page(db_, cursor.get());
+
+            for (const auto& a : stmt.assignments) {
+                int idx = schema.indexOf(a.col);
+                row.fields[idx] = parseValue(a.raw_value,
+                                             schema.columns[idx].type);
+            }
+
+            auto bytes = serializeRow(row);
+            std::memset(cell, 0, LEAF_NODE_VALUE_SIZE);
+            std::memcpy(cell, bytes.data(), bytes.size());
+            updated = 1;
+        } catch (...) {
+            result = ExecuteResult::EXECUTE_TYPE_ERROR;
+        }
+
+        if (result == ExecuteResult::EXECUTE_SUCCESS)
+            db_->commit_txn(txn->id());
+        else
+            db_->rollback_txn(txn->id());
+
+        return result;
+    }
 
     auto cursor = Cursor::table_start(table);
 
