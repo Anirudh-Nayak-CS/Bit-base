@@ -1,37 +1,43 @@
 N,Operation,Total_ms,Per_op_us
-5,"INSERT (sequential)",1.30406,260.813
-5,"SELECT * (full scan)",0.024285,4.857
-5,"SELECT WHERE id= (point lookup)",0.02602,5.204
-5,"UPDATE WHERE id= (point)",1.51846,303.692
-5,"DELETE WHERE id= (point)",1.70302,340.604
-5,"INSERT reverse order (splits)",1.11772,223.544
-10,"INSERT (sequential)",1.69427,169.427
-10,"SELECT * (full scan)",0.051959,5.1959
-10,"SELECT WHERE id= (point lookup)",0.025057,2.5057
-10,"UPDATE WHERE id= (point)",1.61317,161.317
-10,"DELETE WHERE id= (point)",1.99873,199.873
-10,"INSERT reverse order (splits)",1.47417,147.417
-50,"INSERT (sequential)",8.13795,162.759
-50,"SELECT * (full scan)",0.776891,15.5378
-50,"SELECT WHERE id= (point lookup)",0.570751,11.415
-50,"UPDATE WHERE id= (point)",10.852,217.04
-50,"DELETE WHERE id= (point)",8.69423,173.885
-50,"INSERT reverse order (splits)",8.26793,165.359
-100,"INSERT (sequential)",18.1052,181.052
-100,"SELECT * (full scan)",2.51941,25.1941
-100,"SELECT WHERE id= (point lookup)",1.1172,11.172
-100,"UPDATE WHERE id= (point)",18.797,187.97
-100,"DELETE WHERE id= (point)",17.9,179
-100,"INSERT reverse order (splits)",17.4236,174.236
-250,"INSERT (sequential)",44.1063,176.425
-250,"SELECT * (full scan)",13.961,55.8438
-250,"SELECT WHERE id= (point lookup)",6.56522,26.2609
-250,"UPDATE WHERE id= (point)",43.3233,173.293
-250,"DELETE WHERE id= (point)",44.5852,178.341
-250,"INSERT reverse order (splits)",44.5248,178.099
-500,"INSERT (sequential)",90.3658,180.732
-500,"SELECT * (full scan)",58.8736,117.747
-500,"SELECT WHERE id= (point lookup)",27.366,54.7319
-500,"UPDATE WHERE id= (point)",100.82,201.64
-500,"DELETE WHERE id= (point)",98.7016,197.403
-500,"INSERT reverse order (splits)",89.4256,178.851
+5,"INSERT (sequential)",4.00657,801.315
+5,"SELECT * (full scan)",0.280966,56.1932
+5,"SELECT WHERE id= (point lookup)",0.092987,18.5974
+5,"UPDATE WHERE id= (point)",1.44112,288.223
+5,"DELETE WHERE id= (point)",1.29171,258.341
+5,"INSERT reverse order (splits)",1.29914,259.828
+10,"INSERT (sequential)",3.46801,346.801
+10,"SELECT * (full scan)",0.593278,59.3278
+10,"SELECT WHERE id= (point lookup)",0.177139,17.7139
+10,"UPDATE WHERE id= (point)",2.68905,268.905
+10,"DELETE WHERE id= (point)",2.85129,285.13
+10,"INSERT reverse order (splits)",3.15563,315.563
+50,"INSERT (sequential)",15.7877,315.754
+50,"SELECT * (full scan)",11.7443,234.886
+50,"SELECT WHERE id= (point lookup)",0.881608,17.6322
+50,"UPDATE WHERE id= (point)",15.0287,300.573
+50,"DELETE WHERE id= (point)",15.1534,303.069
+50,"INSERT reverse order (splits)",14.4719,289.439
+100,"INSERT (sequential)",30.3693,303.693
+100,"SELECT * (full scan)",47.5558,475.558
+100,"SELECT WHERE id= (point lookup)",1.7686,17.686
+100,"UPDATE WHERE id= (point)",31.5047,315.047
+100,"DELETE WHERE id= (point)",25.9448,259.448
+100,"INSERT reverse order (splits)",31.3163,313.163
+250,"INSERT (sequential)",74.7536,299.014
+250,"SELECT * (full scan)",283.272,1133.09
+250,"SELECT WHERE id= (point lookup)",4.36405,17.4562
+250,"UPDATE WHERE id= (point)",76.5977,306.391
+250,"DELETE WHERE id= (point)",69.3716,277.486
+250,"INSERT reverse order (splits)",72.6486,290.595
+500,"INSERT (sequential)",152.524,305.048
+500,"SELECT * (full scan)",1103.59,2207.18
+500,"SELECT WHERE id= (point lookup)",8.67349,17.347
+500,"UPDATE WHERE id= (point)",155.97,311.94
+500,"DELETE WHERE id= (point)",142.442,284.883
+500,"INSERT reverse order (splits)",152.25,304.501
+1000,"INSERT (sequential)",305.367,305.367
+1000,"SELECT * (full scan)",4507.45,4507.45
+1000,"SELECT WHERE id= (point lookup)",17.3556,17.3556
+1000,"UPDATE WHERE id= (point)",328.183,328.183
+1000,"DELETE WHERE id= (point)",290.247,290.247
+1000,"INSERT reverse order (splits)",270.966,270.966

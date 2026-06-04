@@ -18,20 +18,38 @@ pivot = df.pivot(index='Operation', columns='N', values='Total_ms').fillna(0)
 
 operations = pivot.index
 ns = pivot.columns
+colors = [
+    '#6A3D9A',  # purple
+    '#1F78B4',  # blue
+    '#17A2B8',  # teal
+    '#33A02C',  # green
+    '#FDBF11',  # yellow
+    '#FF7F00',  # orange
+    '#E31A1C',  # red
+]
 
-bar_width = 0.15
+group_width = 0.76
+bar_width = group_width / len(ns)
 x = np.arange(len(operations))
 
 for i, n_val in enumerate(ns):
-    plt.bar(x + i * bar_width, pivot[n_val], width=bar_width, label=f'N = {n_val}')
+    offset = (i - (len(ns) - 1) / 2) * bar_width
+    plt.bar(x + offset,
+            pivot[n_val],
+            width=bar_width,
+            label=f'N = {n_val}',
+            color=colors[i % len(colors)],
+            edgecolor='white',
+            linewidth=0.6)
 
 
 plt.xlabel('Operation')
-plt.ylabel('Total Time (ms)')
+plt.ylabel('Total Time (ms, log scale)')
 plt.title('BitBase Benchmark - Total Execution Time by Operation and Scale')
-plt.xticks(x + bar_width * (len(ns)-1)/2, operations, rotation=45, ha='right')
+plt.xticks(x, operations, rotation=45, ha='right')
+plt.yscale('log')
 plt.legend(title='Number of Rows')
-plt.grid(axis='y', alpha=0.3)
+plt.grid(axis='y', which='both', linestyle='--', alpha=0.35)
 plt.tight_layout()
 plt.savefig('bitbase_benchmark_total_time.png', dpi=300, bbox_inches='tight')
 plt.show()

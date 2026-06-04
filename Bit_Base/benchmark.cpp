@@ -37,6 +37,21 @@ static bool execSQL(db* database, const std::string& sql) {
     return vm.execute(stmt) == EXECUTE_SUCCESS;
 }
 
+class ScopedOutputSilencer {
+public:
+    ScopedOutputSilencer()
+        : cout_old_(std::cout.rdbuf(nullptr)),
+          cerr_old_(std::cerr.rdbuf(nullptr)) {}
+
+    ~ScopedOutputSilencer() {
+        std::cout.rdbuf(cout_old_);
+        std::cerr.rdbuf(cerr_old_);
+    }
+
+private:
+    std::streambuf* cout_old_;
+    std::streambuf* cerr_old_;
+};
 
 struct BenchResult {
     std::string label;
@@ -48,7 +63,10 @@ struct BenchResult {
 
 static BenchResult measure(const std::string& label, int n, std::function<void()> fn) {
     auto t0 = std::chrono::high_resolution_clock::now();
-    fn();
+    {
+        ScopedOutputSilencer quiet;
+        fn();
+    }
     auto t1 = std::chrono::high_resolution_clock::now();
     double ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
     return {label, n, ms, (ms * 1000.0) / n};
@@ -138,22 +156,18 @@ static std::vector<BenchResult> runSuite(int N) {
 
    
     results.push_back(measure("SELECT * (full scan)", N, [&]() {
-        std::streambuf* old = std::cout.rdbuf(nullptr);
         for (int i = 0; i < N; ++i) {
             execSQL(database, "SELECT * FROM bench");
         }
-        std::cout.rdbuf(old);
     }));
 
 
     results.push_back(measure("SELECT WHERE id= (point lookup)", N, [&]() {
-        std::streambuf* old = std::cout.rdbuf(nullptr);
         for (int i = 1; i <= N; ++i) {
             std::ostringstream sql;
             sql << "SELECT * FROM bench WHERE id = " << i;
             execSQL(database, sql.str());
         }
-        std::cout.rdbuf(old);
     }));
 
  
