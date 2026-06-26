@@ -80,9 +80,6 @@ void WalManager::log_commit(uint64_t txn_id) {
     r.transaction_id = txn_id;
     write_record(r);
     flush();   // WAL record MUST hit disk before page data does
-    // Truncate immediately after commit: the pager will flush committed pages
-    // to disk on db_close, so the WAL is no longer needed for recovery.
-    truncate();
 }
 
 void WalManager::log_rollback(uint64_t txn_id) {

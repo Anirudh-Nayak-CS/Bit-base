@@ -81,12 +81,15 @@ bool db::commit_txn(uint64_t txn_id) {
         return false;
     }
  
-    // Write COMMIT record and fsync the WAL *before* touching data pages.
-    wal_->log_commit(txn_id);   // log_commit calls flush() and truncate() internally
+    // Write COMMIT record and flush the WAL before touching data pages.
+    wal_->log_commit(txn_id);
  
     // Flush every dirty page to the .tbl file now that the commit is durable
     for (auto& [tname, table] : tables)
         table->pager->flush_all_dirty();
+
+    // Only clear recovery info after the committed data pages are flushed.
+    wal_->truncate();
  
     current_txn_->mark_committed();
     current_txn_.reset();
