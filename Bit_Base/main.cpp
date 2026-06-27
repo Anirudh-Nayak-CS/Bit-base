@@ -12,7 +12,7 @@ static void printPrompt() {
     std::cout << "bitbase> ";
 }
 
-static bool handleMeta(const std::string& input, db* database) {
+static Metastatus handleMeta(const std::string& input, db* database) {
     if (input == ".exit") {
         database->db_close();
         std::cout << "Bye.\n";
@@ -21,7 +21,7 @@ static bool handleMeta(const std::string& input, db* database) {
     if (input == ".tables") {
         for (auto& [name, _] : database->tables)
             std::cout << "  " << name << "\n";
-        return true;
+        return META_SUCCESS;
     }
     if (input == ".help") {
         std::cout <<
@@ -39,10 +39,10 @@ static bool handleMeta(const std::string& input, db* database) {
             "  UPDATE <table>  SET col1=val1 [, col2=val2 ...]  WHERE <Primary_key>=<col_no>\n"
             "  CREATE TABLE <name> (<col1> <TYPE1> [PRIMARY KEY], <col2> <TYPE2>, ...)\n"
             "  DROP TABLE <name>\n";
-        return true;
+        return META_SUCCESS;
     }
     std::cout << "Unknown meta command: " << input << "\n";
-    return false;
+    return META_FAILURE;
 }
 
 int main(int argc, char* argv[]) {

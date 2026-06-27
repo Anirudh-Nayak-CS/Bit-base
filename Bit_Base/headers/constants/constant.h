@@ -25,18 +25,9 @@ Commandstatus;
 
 typedef enum {
   META_SUCCESS,
-  META_FAILURE,
-  META_UNRECOGNIZED
+  META_FAILURE
 }
 Metastatus;
-
-typedef enum {
-  MALE,
-  FEMALE,
-  OTHER,
-  NOT_DEFINED
-}
-gender;
 
 enum ExecuteResult {
   EXECUTE_SUCCESS,

@@ -108,7 +108,7 @@ Commandstatus Parser::parseSelect(const std::vector<Token>& t, Statement& out) {
     size_t i = 1;
 
     // Column list or *
-    if (match(t, i, TokenType::IDENTIFIER, "*")) {
+    if (match(t, i, TokenType::OPERATOR, "*")) {
         i++;
     } else {
         while (i < t.size() && !match(t, i, TokenType::KEYWORD, "FROM")) {
@@ -135,7 +135,7 @@ Commandstatus Parser::parseSelect(const std::vector<Token>& t, Statement& out) {
         i++;
 
         // operator: = < > <= >=
-        if (i >= t.size()) return CMD_SYNTAX_ERROR;
+        if (!match(t, i, TokenType::OPERATOR)) return CMD_SYNTAX_ERROR;
         std::string op = t[i].value;
         if (op != "=" && op != "<" && op != ">" && op != "<=" && op != ">=")
             return CMD_SYNTAX_ERROR;
@@ -202,7 +202,7 @@ Commandstatus Parser::parseUpdate(const std::vector<Token>& t, Statement& out) {
         std::string col = t[i].value;
         i++;
 
-        if (i >= t.size() || t[i].value != "=") return CMD_SYNTAX_ERROR;
+        if (!match(t, i, TokenType::OPERATOR, "=")) return CMD_SYNTAX_ERROR;
         i++;
 
         if (i >= t.size()) return CMD_SYNTAX_ERROR;
@@ -226,7 +226,7 @@ Commandstatus Parser::parseUpdate(const std::vector<Token>& t, Statement& out) {
         out.where.col = t[i].value;
         i++;
 
-        if (i >= t.size()) return CMD_SYNTAX_ERROR;
+        if (!match(t, i, TokenType::OPERATOR)) return CMD_SYNTAX_ERROR;
         std::string op = t[i].value;
         if (op != "=" && op != "<" && op != ">" && op != "<=" && op != ">=")
             return CMD_SYNTAX_ERROR;
@@ -330,7 +330,7 @@ Commandstatus Parser::parseDelete(const std::vector<Token>& t, Statement& out) {
         out.where.col = t[i].value;
         i++;
 
-        if (i >= t.size()) return CMD_SYNTAX_ERROR;
+        if (!match(t, i, TokenType::OPERATOR)) return CMD_SYNTAX_ERROR;
         std::string op = t[i].value;
         if (op != "=" && op != "<" && op != ">" && op != "<=" && op != ">=")
             return CMD_SYNTAX_ERROR;

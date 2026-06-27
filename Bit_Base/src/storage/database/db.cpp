@@ -62,16 +62,15 @@ Transaction* db::begin_txn() {
  
 // pin_page: called by vm.cpp BEFORE a page is mutated.
 // Saves the before-image to both the in-memory transaction and the WAL.
-void db::pin_page(uint32_t page_num, const void* page_data, Pager* pager) {
+void db::pin_page(uint32_t page_num, const void* page_data, Pager*) {
     if (!current_txn_) return;
     if (current_txn_->has_snapshot(page_num)) return;
  
     // Save in-memory snapshot (for fast rollback without re-reading the WAL)
     current_txn_->pin_page(page_num, page_data, PAGE_SIZE);
  
-    // Log the before-image to disk (WAL guarantee)
-    // after-image pointer is unused in our UNDO-only scheme
-    wal_->log_write(current_txn_->id(), page_num, page_data, nullptr);
+    // Save the before-image for rollback/recovery.
+    // The final after-image is logged when the transaction commits.
 }
  
 bool db::commit_txn(uint64_t txn_id) {
@@ -81,6 +80,22 @@ bool db::commit_txn(uint64_t txn_id) {
         return false;
     }
  
+    // Write a redo record for every page touched by the transaction.
+    for (const auto& [page_num, before_data] : current_txn_->snapshots()) {
+        bool logged = false;
+        for (auto& [tname, table] : tables) {
+            if (page_num < table->pager->num_pages) {
+                void* page = table->pager->get_page(page_num);
+                wal_->log_write(txn_id, page_num, before_data.data(), page);
+                logged = true;
+                break;
+            }
+        }
+        if (!logged) {
+            std::cerr << "[db] warning: could not find pager for page " << page_num << "\n";
+        }
+    }
+
     // Write COMMIT record and flush the WAL before touching data pages.
     wal_->log_commit(txn_id);
  

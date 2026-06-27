@@ -1,8 +1,9 @@
 #include "../../headers/tokenizer/tokenizer.h"
 #include <algorithm>
 #include <cctype>
+#include <unordered_set>
 
-static const std::vector<std::string> KEYWORDS = {
+static const std::unordered_set<std::string> KEYWORDS = {
     "INSERT", "SELECT", "DELETE", "UPDATE",  "CREATE", "DROP", "TABLE",
     "INTO",   "FROM",   "WHERE",  "PRIMARY", "KEY",    "SET",  "VALUES",
     "ORDER",  "BY"     };
@@ -10,10 +11,7 @@ static const std::vector<std::string> KEYWORDS = {
 static bool isKeyword(const std::string &word) {
   std::string upper = word;
   std::transform(upper.begin(), upper.end(), upper.begin(), ::toupper);
-  for (const auto &kw : KEYWORDS)
-    if (kw == upper)
-      return true;
-  return false;
+  return KEYWORDS.count(upper) > 0;
 }
 
 std::vector<Token> tokenize(const std::string &input) {
@@ -80,11 +78,10 @@ std::vector<Token> tokenize(const std::string &input) {
       continue;
     }
 
-    // operators and delimiters: =, <, <=, >, >=, *, etc.
+    // operators: =, <, <=, >, >=, *, +, -, /
     if (input[i] == '=' || input[i] == '<' || input[i] == '>' ||
         input[i] == '*' || input[i] == '+' || input[i] == '-' ||
-        input[i] == '/' || input[i] == ',' || input[i] == '(' ||
-        input[i] == ')') {
+        input[i] == '/') {
       std::string val;
       val += input[i];
       // Combine two-character operators <= and >=
@@ -93,7 +90,7 @@ std::vector<Token> tokenize(const std::string &input) {
         val += '=';
         i++;
       }
-      tokens.push_back({TokenType::IDENTIFIER, val}); // operators as IDENTIFIER
+      tokens.push_back({TokenType::OPERATOR, val});
       i++;
       continue;
     }
@@ -116,6 +113,8 @@ std::string tokenTypeToString(TokenType t) {
     return "NUMBER";
   case TokenType::STRING:
     return "STRING";
+  case TokenType::OPERATOR:
+    return "OPERATOR";
   case TokenType::END:
     return "END";
   case TokenType::PUNCTUATION:

@@ -18,6 +18,7 @@ struct WalRecord {
     uint64_t      transaction_id;
     uint32_t      page_num;          // meaningful for WRITE records
     std::vector<uint8_t> before_image; // before image of page (Data)
+    std::vector<uint8_t> after_image;  // after image of page (redo data)
 };
 
 class WalManager {
@@ -42,6 +43,7 @@ public:
 private:
     std::fstream file_;
     std::string  path_;
+    int fd_ = -1;
     void write_record(const WalRecord& r);
     std::vector<WalRecord> read_all();
 

@@ -141,7 +141,7 @@ void B_Plus_Tree::create_new_root(Table *table, uint32_t right_child_page_num) {
 
   if (get_node_type(left_child) == NodeType::INTERNAL) {
     void *child;
-    for (int i = 0; i < *internal_node_num_keys(left_child); i++) {
+    for (uint32_t i = 0; i < *internal_node_num_keys(left_child); ++i) {
       child = table->pager->get_page(*internal_node_child(left_child, i));
       *node_parent(child) = left_child_page_num;
     }

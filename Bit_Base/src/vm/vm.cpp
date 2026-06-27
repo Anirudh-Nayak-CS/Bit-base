@@ -1,7 +1,6 @@
 #include "../../headers/vm/vm.h"
 #include "../../headers/constants/constant.h"
 #include "../../headers/storage/node/leaf_node.h"
-#include "../../headers/storage/node/node_utils.h"
 #include "../../headers/schema/schema.h"
 #include "../../headers/storage/row/row_serialize.h"
 #include <iostream>
@@ -559,7 +558,7 @@ ExecuteResult VM::executeDropTable(const Statement & stmt) {
 //  helpers
 
 void VM::printRow(const Row & row,
-  const Schema & schema) const {
+  const Schema &) const {
   for (const auto & field: row.fields) {
     std::visit([](auto && v) {
       std::cout << v << "\t";
