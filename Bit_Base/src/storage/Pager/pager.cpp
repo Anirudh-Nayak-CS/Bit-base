@@ -6,6 +6,8 @@
 #include <fcntl.h>
 #include <cerrno>
 #include <cstring>
+#include <sys/types.h>
+#include <unistd.h>
 
 void* Pager::get_page(uint32_t page_num) {
     if (page_num >= TABLE_MAX_PAGES) {
@@ -90,8 +92,15 @@ void Pager::flush_page(uint32_t page_num) {
 void Pager::flush_all_dirty() {
     std::unordered_set<uint32_t> to_flush = std::move(dirty_pages_);
     dirty_pages_.clear();
-    for (uint32_t pnum : to_flush)
+
+    for (uint32_t pnum : to_flush) {
         flush_page(pnum);
+    }
+
+    if (file_descriptor != -1 && fsync(file_descriptor) == -1) {
+        std::cerr << "Error syncing pager file: " << std::strerror(errno) << "\n";
+        std::exit(EXIT_FAILURE);
+    }
 }
 
 Pager* Pager::pager_open(const char* filename)

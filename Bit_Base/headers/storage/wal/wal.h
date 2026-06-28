@@ -15,10 +15,12 @@ enum class WalRecordType : uint8_t {
 
 struct WalRecord {
     WalRecordType type;
-    uint64_t      transaction_id;
-    uint32_t      page_num;          // meaningful for WRITE records
-    std::vector<uint8_t> before_image; // before image of page (Data)
-    std::vector<uint8_t> after_image;  // after image of page (redo data)
+    uint64_t transaction_id;
+    uint32_t page_num;          
+    uint32_t page_offset = 0; 
+    uint32_t data_size = 0;    
+    std::vector<uint8_t> before_image; 
+    std::vector<uint8_t> after_image; 
 };
 
 class WalManager {

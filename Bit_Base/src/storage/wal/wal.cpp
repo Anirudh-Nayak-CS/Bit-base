@@ -1,5 +1,5 @@
 #include "../../../headers/storage/wal/wal.h"
-#include "../../../headers/storage/Pager/pager.h"   // adjust path to match your pager header
+#include "../../../headers/storage/Pager/pager.h"   
 #include <cstring>
 #include <iostream>
 #include <stdexcept>
@@ -54,6 +54,8 @@ void WalManager::write_record(const WalRecord& r) {
 
     if (r.type == WalRecordType::WRITE) {
         write_u32(file_, r.page_num);
+        write_u32(file_, r.page_offset);
+        write_u32(file_, r.data_size);
 
         write_u32(file_, static_cast<uint32_t>(r.before_image.size()));
         file_.write(reinterpret_cast<const char*>(r.before_image.data()),
@@ -65,7 +67,7 @@ void WalManager::write_record(const WalRecord& r) {
     }
 }
 
-// ── public logging API ────────────────────────────────────────────────────────
+
 
 void WalManager::log_begin(uint64_t txn_id) {
     WalRecord r;
@@ -77,14 +79,33 @@ void WalManager::log_begin(uint64_t txn_id) {
 
 void WalManager::log_write(uint64_t txn_id, uint32_t page_num,
                             const void* before, const void* after) {
+    const auto* before_bytes = static_cast<const uint8_t*>(before);
+    const auto* after_bytes = static_cast<const uint8_t*>(after);
+
+    uint32_t first_diff = PAGE_SIZE;
+    uint32_t last_diff = 0;
+
+    for (uint32_t i = 0; i < PAGE_SIZE; ++i) {
+        if (before_bytes[i] != after_bytes[i]) {
+            if (i < first_diff) first_diff = i;
+            if (i > last_diff) last_diff = i;
+        }
+    }
+
+    if (first_diff == PAGE_SIZE) {
+        return; // nothing changed, skip logging
+    }
+
     WalRecord r;
-    r.type     = WalRecordType::WRITE;
-    r.transaction_id  = txn_id;
+    r.type = WalRecordType::WRITE;
+    r.transaction_id = txn_id;
     r.page_num = page_num;
-    r.before_image.resize(PAGE_SIZE);
-    r.after_image.resize(PAGE_SIZE);
-    std::memcpy(r.before_image.data(), before, PAGE_SIZE);
-    std::memcpy(r.after_image.data(), after, PAGE_SIZE);
+    r.page_offset = first_diff;
+    r.data_size = last_diff - first_diff + 1;
+    r.before_image.assign(before_bytes + first_diff,
+                          before_bytes + first_diff + r.data_size);
+    r.after_image.assign(after_bytes + first_diff,
+                         after_bytes + first_diff + r.data_size);
     write_record(r);
 }
 
@@ -132,6 +153,9 @@ std::vector<WalRecord> WalManager::read_all() {
 
         if (r.type == WalRecordType::WRITE) {
             r.page_num = read_u32(file_);
+            r.page_offset = read_u32(file_);
+            r.data_size = read_u32(file_);
+
             uint32_t before_size = read_u32(file_);
             if (file_.fail()) break;
             r.before_image.resize(before_size);
@@ -183,14 +207,15 @@ void WalManager::recover(Pager* pager) {
         if (r.type != WalRecordType::WRITE) continue;
 
         void* page = pager->get_page(r.page_num);
+        auto* page_bytes = static_cast<uint8_t*>(page);
         if (recover_committed_.count(r.transaction_id)) {
-            std::memcpy(page, r.after_image.data(),
-                        std::min(r.after_image.size(), (size_t)PAGE_SIZE));
+            std::memcpy(page_bytes + r.page_offset, r.after_image.data(),
+                        std::min(r.after_image.size(), (size_t)r.data_size));
             pager->mark_dirty(r.page_num);
             did_apply = true;
         } else {
-            std::memcpy(page, r.before_image.data(),
-                        std::min(r.before_image.size(), (size_t)PAGE_SIZE));
+            std::memcpy(page_bytes + r.page_offset, r.before_image.data(),
+                        std::min(r.before_image.size(), (size_t)r.data_size));
             pager->mark_dirty(r.page_num);
             did_apply = true;
         }
