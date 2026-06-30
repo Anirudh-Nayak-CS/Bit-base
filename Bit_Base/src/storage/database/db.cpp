@@ -14,9 +14,7 @@ db *db::db_open(const char *filename) {
   database->wal_ = std::make_unique<WalManager>(
         std::string(filename) + ".wal");
   database->loadSchema();
-  // Replay any committed-but-not-flushed txns from a prior crash.
-  // Each call to recover() truncates the WAL after processing, so subsequent
-  // calls on other tables simply read an empty WAL and return immediately.
+
   for (auto& [name, table] : database->tables)
       database->wal_->recover(table->pager);
 
@@ -24,10 +22,10 @@ db *db::db_open(const char *filename) {
 }
 
 void db::db_close() {
-       // Roll back any open transaction that was never committed
+     
     if (current_txn_) {
         std::cerr << "[db] open transaction rolled back on close\n";
-        // Restore all before-images
+    
         for (const auto& [page_num, data] : current_txn_->snapshots()) {
     for (auto& [tname, table] : tables) {
         if (page_num < table->pager->num_pages) {
@@ -49,7 +47,7 @@ void db::db_close() {
 //  Transaction management 
  
 Transaction* db::begin_txn() {
-    // Only one active txn at a time (single-writer model)
+ 
     if (current_txn_) {
         std::cerr << "[db] warning: nested BEGIN  ignoring\n";
     
@@ -61,16 +59,14 @@ Transaction* db::begin_txn() {
 }
  
 // pin_page: called by vm.cpp BEFORE a page is mutated.
-// Saves the before-image to both the in-memory transaction and the WAL.
+
 void db::pin_page(uint32_t page_num, const void* page_data, Pager*) {
     if (!current_txn_) return;
     if (current_txn_->has_snapshot(page_num)) return;
  
-    // Save in-memory snapshot (for fast rollback without re-reading the WAL)
+  
     current_txn_->pin_page(page_num, page_data, PAGE_SIZE);
  
-    // Save the before-image for rollback/recovery.
-    // The final after-image is logged when the transaction commits.
 }
  
 bool db::commit_txn(uint64_t txn_id) {
@@ -80,7 +76,7 @@ bool db::commit_txn(uint64_t txn_id) {
         return false;
     }
  
-    // Write a redo record for every page touched by the transaction.
+
     for (const auto& [page_num, before_data] : current_txn_->snapshots()) {
         bool logged = false;
         for (auto& [tname, table] : tables) {
@@ -96,14 +92,12 @@ bool db::commit_txn(uint64_t txn_id) {
         }
     }
 
-    // Write COMMIT record and flush the WAL before touching data pages.
     wal_->log_commit(txn_id);
  
-    // Flush every dirty page to the .tbl file now that the commit is durable
+
     for (auto& [tname, table] : tables)
         table->pager->flush_all_dirty();
 
-    // Only clear recovery info after the committed data pages are flushed.
     wal_->truncate();
  
     current_txn_->mark_committed();
@@ -116,11 +110,7 @@ bool db::rollback_txn(uint64_t txn_id) {
         std::cerr << "[db] rollback_txn: no matching open transaction\n";
         return false;
     }
- 
-    // Restore every page to its before-image (in-memory snapshots).
-    // We iterate all tables and check which page numbers belong to each pager.
-    // Because BitBase is single-table-per-file, page numbers are per-pager,
-    // so we match by checking num_pages bounds.
+
   for (const auto& [page_num, data] : current_txn_->snapshots()) {
     for (auto& [tname, table] : tables) {
         if (page_num < table->pager->num_pages) {
@@ -131,12 +121,10 @@ bool db::rollback_txn(uint64_t txn_id) {
         }
     }
 }
- 
-    // Flush restored pages so the .tbl file is consistent too
+
     for (auto& [tname, table] : tables)
         table->pager->flush_all_dirty();
- 
-    // Log ROLLBACK and truncate WAL
+
     wal_->log_rollback(txn_id);
     wal_->truncate();
  
@@ -209,7 +197,7 @@ void db::loadSchema() {
     std::string colspec;
 
     while (ss >> colspec) {
-      // Parse colspec: "name:type" or "name:type:PK"
+   
       size_t pos1 = colspec.find(':');
       if (pos1 == std::string::npos) continue;
       

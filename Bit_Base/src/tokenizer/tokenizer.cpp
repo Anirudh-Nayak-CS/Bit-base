@@ -20,32 +20,32 @@ std::vector<Token> tokenize(const std::string &input) {
   size_t n = input.size();
 
   while (i < n) {
-    // skip whitespace
+
     if (std::isspace(input[i])) {
       i++;
       continue;
     }
 
-    // punctuation: ( ) ,
+  
     if (input[i] == '(' || input[i] == ')' || input[i] == ',') {
       tokens.push_back({TokenType::PUNCTUATION, std::string(1, input[i])});
       i++;
       continue;
     }
 
-    // quoted string
+  
     if (input[i] == '\'' || input[i] == '"') {
       char quote = input[i++];
       std::string val;
       while (i < n && input[i] != quote)
         val += input[i++];
       if (i < n)
-        i++; // consume closing quote
+        i++; 
       tokens.push_back({TokenType::STRING, val});
       continue;
     }
 
-    // number (possibly negative)
+  
     if (std::isdigit(input[i]) ||
         (input[i] == '-' && i + 1 < n && std::isdigit(input[i + 1]))) {
       std::string val;
@@ -57,12 +57,11 @@ std::vector<Token> tokenize(const std::string &input) {
       continue;
     }
 
-    // word: keyword or identifier or unquoted string
+    
     if (std::isalpha(input[i]) || input[i] == '_' || input[i] == '@' ||
         input[i] == '.') {
       std::string val;
-      // allow alphanumeric, underscore, dot, @, hyphen inside words (for emails
-      // etc)
+  
       while (i < n && (std::isalnum(input[i]) || input[i] == '_' ||
                        input[i] == '@' || input[i] == '.' || input[i] == '-'))
         val += input[i++];
@@ -74,17 +73,17 @@ std::vector<Token> tokenize(const std::string &input) {
         tokens.push_back({TokenType::KEYWORD, upper});
       else
         tokens.push_back(
-            {TokenType::IDENTIFIER, val}); // Non-keywords are IDENTIFIER
+            {TokenType::IDENTIFIER, val}); 
       continue;
     }
 
-    // operators: =, <, <=, >, >=, *, +, -, /
+  
     if (input[i] == '=' || input[i] == '<' || input[i] == '>' ||
         input[i] == '*' || input[i] == '+' || input[i] == '-' ||
         input[i] == '/') {
       std::string val;
       val += input[i];
-      // Combine two-character operators <= and >=
+   
       if ((input[i] == '<' || input[i] == '>') &&
           i + 1 < n && input[i + 1] == '=') {
         val += '=';
@@ -95,7 +94,7 @@ std::vector<Token> tokenize(const std::string &input) {
       continue;
     }
 
-    // skip unknown characters (semicolons, etc)
+ 
     i++;
   }
 

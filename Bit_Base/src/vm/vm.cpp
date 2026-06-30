@@ -8,8 +8,7 @@
 #include <algorithm>
 #include <limits>
 
-// Helper: compare a FieldValue against a raw string using an operator.
-// Returns true if the row passes the WHERE filter.
+
 static bool matchesWhere(const Value& field,
                           const std::string& op,
                           const std::string& raw_value,
@@ -64,7 +63,7 @@ static void pin_cursor_page(db* database, Cursor* cursor) {
 
 //  INSERT
 
-// helper: insert a single row of raw string values into the table
+
 static ExecuteResult insertOneRow(db* database,Table * table,
   const Schema & schema,
     const std::vector < std::string > & values) {
@@ -99,7 +98,6 @@ static ExecuteResult insertOneRow(db* database,Table * table,
   if (bytes.size() > LEAF_NODE_VALUE_SIZE)
     return ExecuteResult::EXECUTE_ROW_TOO_LARGE;
 
-    // Find the insertion position first (read-only)
   auto cursor = table->find(row.id);
  
     
@@ -131,7 +129,7 @@ ExecuteResult VM::executeInsert(const Statement& stmt) {
         result = insertOneRow(db_, table, schema, stmt.insert_values);
     }
 
-    // single commit/rollback path for both single and multi-row
+  
     if (result == ExecuteResult::EXECUTE_SUCCESS)
         db_->commit_txn(txn->id());
     else
@@ -191,11 +189,11 @@ ExecuteResult VM::executeSelect(const Statement& stmt) {
                 }
             }
         } catch (...) {
-            // Match scan behavior for malformed WHERE values: return no rows.
+          
         }
     }
 
-    // scan all rows when the WHERE clause cannot use the primary-key index
+    
     if (!used_index_lookup) {
         auto cursor = Cursor::table_start(table);
 
@@ -366,7 +364,7 @@ ExecuteResult VM::executeUpdate(const Statement& stmt) {
         // Pin this page before first write
         pin_cursor_page(db_, cursor.get());
 
-        // Apply SET assignments
+      
         for (const auto& a : stmt.assignments) {
             int idx = schema.indexOf(a.col);
             try {

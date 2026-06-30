@@ -23,11 +23,11 @@ WalManager::WalManager(const std::string& wal_path) : path_(wal_path) {
         throw std::runtime_error("WAL: cannot open " + wal_path);
     }
 
-    // Open for reading AND writing; create if not present.
+  
     file_.open(wal_path, std::ios::in | std::ios::out |
                           std::ios::binary | std::ios::app);
     if (!file_.is_open()) {
-        // File doesn't exist yet – create it then reopen r/w
+       
         std::ofstream create(wal_path, std::ios::binary);
         create.close();
         file_.open(wal_path, std::ios::in | std::ios::out | std::ios::binary);
@@ -93,7 +93,7 @@ void WalManager::log_write(uint64_t txn_id, uint32_t page_num,
     }
 
     if (first_diff == PAGE_SIZE) {
-        return; // nothing changed, skip logging
+        return; 
     }
 
     WalRecord r;
@@ -114,7 +114,7 @@ void WalManager::log_commit(uint64_t txn_id) {
     r.type   = WalRecordType::COMMIT;
     r.transaction_id = txn_id;
     write_record(r);
-    flush();   // WAL record MUST hit disk before page data does
+    flush();   
 }
 
 void WalManager::log_rollback(uint64_t txn_id) {
@@ -141,7 +141,7 @@ std::vector<WalRecord> WalManager::read_all() {
     file_.seekg(0, std::ios::beg);
 
     while (true) {
-        // Try to read type byte
+       
         uint8_t type_byte;
         file_.read(reinterpret_cast<char*>(&type_byte), 1);
         if (file_.eof() || file_.fail()) break;
@@ -155,6 +155,11 @@ std::vector<WalRecord> WalManager::read_all() {
             r.page_num = read_u32(file_);
             r.page_offset = read_u32(file_);
             r.data_size = read_u32(file_);
+        WalRecord r;
+        r.type   = static_cast<WalRecordType>(type_byte);
+        r.transaction_id = read_u64(file_);
+        if (file_.fail()) break;
+
 
             uint32_t before_size = read_u32(file_);
             if (file_.fail()) break;
@@ -178,30 +183,24 @@ std::vector<WalRecord> WalManager::read_all() {
 }
 
 //  recover 
-// Called once per table at db_open.
 
-// This handles the multi-table case correctly: all tables share one WAL file,
-// so we must not truncate it after processing the first table.
 
 void WalManager::recover(Pager* pager) {
-    // Read records from disk only once; reuse the cache for subsequent calls.
+    // Read records from disk only once; reuse the cache
     if (recover_cache_.empty()) {
         recover_cache_ = read_all();
-        if (recover_cache_.empty()) return;   // WAL is empty — nothing to do
-
-        // Build the committed-txn set once (shared across all pager calls).
+        if (recover_cache_.empty()) return;   
         for (const auto& r : recover_cache_)
             if (r.type == WalRecordType::COMMIT)
                 recover_committed_.insert(r.transaction_id);
 
-        // Truncate now: we have the records in memory and the file is no
-        // longer needed. Subsequent recover() calls use recover_cache_.
+        // Truncate
         truncate();
     }
 
     if (recover_cache_.empty()) return;
 
-    // Apply redo for committed writes or undo for incomplete writes.
+    
     bool did_apply = false;
     for (const auto& r : recover_cache_) {
         if (r.type != WalRecordType::WRITE) continue;
@@ -225,8 +224,6 @@ void WalManager::recover(Pager* pager) {
         pager->flush_all_dirty();
 }
 
-
-// Wipe the WAL file after a successful commit flush or recovery.
 
 void WalManager::truncate() {
     file_.close();
